@@ -1,4 +1,5 @@
 const Student = require('../models/studentModel');
+const db = require('../config/db'); // your mysql db connection
 
 exports.getAllStudents = (req, res) => {
   Student.getAll((err, result) => {

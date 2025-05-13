@@ -3,7 +3,11 @@ const app = express();
 require('dotenv').config();
 const cors = require('cors'); // If you need CORS
 
-app.use(cors()); // Use CORS if needed
+const corsOptions = {
+  origin: 'http://localhost:3000', // Specify the exact origin of your frontend
+  credentials: true,                 // Enable sending cookies and authorization headers
+};
+app.use(cors(corsOptions));
 app.use(express.json()); //  Use express.json() *once*
 
 // Route imports -  Import ALL your route files
@@ -31,5 +35,5 @@ app.use('/api/receipts', receiptRoutes);
 app.use('/api/branches', branchRoutes);
 
 // Server
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.SERVER_PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

@@ -148,3 +148,4 @@ CREATE TABLE exams (
 
 -- Seed categories
 INSERT INTO categories (name) VALUES ('SVC'), ('MOD'), ('CIV');
+

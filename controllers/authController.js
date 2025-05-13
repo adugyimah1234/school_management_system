@@ -60,3 +60,7 @@ exports.register = async (req, res) => {
     res.status(500).json({ message: 'Internal error', error });
   }
 };
+
+exports.logout = (req, res) => {
+    res.status(200).json({ message: 'Logout successful' });
+};

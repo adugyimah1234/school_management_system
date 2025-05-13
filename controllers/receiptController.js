@@ -1,4 +1,5 @@
 const Receipt = require('../models/receiptModel');
+const db = require('../config/db'); // your mysql db connection
 
 exports.createReceipt = (req, res) => {
   Receipt.create(req.body, (err, result) => {

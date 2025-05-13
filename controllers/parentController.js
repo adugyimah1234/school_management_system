@@ -1,4 +1,5 @@
 const Parent = require('../models/parentModel');
+const db = require('../config/db'); // your mysql db connection
 
 exports.addParent = (req, res) => {
   const parentData = req.body;

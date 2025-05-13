@@ -1,4 +1,5 @@
 const Fee = require('../models/feeModel');
+const db = require('../config/db'); // your mysql db connection
 
 exports.getFee = (req, res) => {
   const { category, classLevel } = req.query;
