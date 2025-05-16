@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
+const { protect } = require("../middlewares/authMiddleware"); // Add this line
 
 // Get all registrations
 router.get("/", (req, res) => {
@@ -106,7 +107,7 @@ router.get("/:id", (req, res) => {
 });
 
 // Update a registration by ID
-router.put("/:id", async (req, res) => {
+router.put("/:id", protect, async (req, res) => { // Add protect middleware
   const { id } = req.params;
   const {
     first_name,
@@ -124,6 +125,11 @@ router.put("/:id", async (req, res) => {
     guardian_phone_number,
     academic_year_id,
   } = req.body;
+
+  // Check if user is admin
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({ error: "Only admins can update registrations." });
+  }
 
   if (
     !academic_year_id ||
@@ -186,8 +192,14 @@ router.put("/:id", async (req, res) => {
 
 
 // Delete a registration by ID
-router.delete("/:id", (req, res) => {
+router.delete("/:id", protect, (req, res) => { // Add protect middleware
   const { id } = req.params;
+
+  // Check if user is admin
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({ error: "Only admins can delete registrations." });
+  }
+
   db.query("DELETE FROM registrations WHERE id = ?", [id], (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
     if (result.affectedRows === 0) return res.status(404).json({ error: "Registration not found." });

@@ -33,4 +33,29 @@ router.post('/', protect, isAdmin, (req, res) => {
   });
 });
 
+// Update user by ID 
+router.put('/:id', protect, (req, res) => {
+  const { id } = req.params;
+  const { username, password, role } = req.body;
+  db.query(
+    'UPDATE users SET username = ?, password = ?, role = ? WHERE id = ?',
+    [username, password, role, id],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (result.affectedRows === 0) return res.status(404).json({ error: 'User not found' });
+      res.json({ message: 'User updated successfully' });
+    }
+  );
+});
+
+// Delete user by ID (admin only)
+router.delete('/:id', protect, isAdmin, (req, res) => {
+  const { id } = req.params;
+  db.query('DELETE FROM users WHERE id = ?', [id], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'User not found' });
+    res.json({ message: 'User deleted successfully' });
+  });
+});
+
 module.exports = router;
