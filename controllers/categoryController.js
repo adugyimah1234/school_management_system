@@ -1,0 +1,59 @@
+const db = require('../config/db');
+
+exports.getAllCategories = async (req, res) => {
+  try {
+    const [categories] = await db.promise().query('SELECT * FROM categories');
+    res.json(categories);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.createCategory = async (req, res) => {
+  const { name } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ error: 'Category name is required' });
+  }
+
+  try {
+    const [result] = await db.promise().query(
+      'INSERT INTO categories (name) VALUES (?)',
+      [name]
+    );
+    res.status(201).json({ id: result.insertId, message: 'Category created successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.updateCategory = async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+
+  try {
+    const [result] = await db.promise().query(
+      'UPDATE categories SET name = ? WHERE id = ?',
+      [name, id]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+    res.json({ message: 'Category updated successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.deleteCategory = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [result] = await db.promise().query('DELETE FROM categories WHERE id = ?', [id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+    res.json({ message: 'Category deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

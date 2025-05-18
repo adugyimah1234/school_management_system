@@ -4,6 +4,7 @@ const router = express.Router();
 const db = require('../config/db');
 const { protect } = require('../middlewares/authMiddleware'); // Import using the correct name
 const userController = require('../controllers/usersController');
+const bcrypt = require('bcryptjs');
 
 // Middleware to check if the user is an admin (adjust as needed)
 const isAdmin = (req, res, next) => {
@@ -25,21 +26,57 @@ router.get('/', protect, isAdmin, (req, res) => {
 router.get('/:id', protect, userController.getUserById);
 
 // Create new user (protected for admins)
-router.post('/', protect, isAdmin, (req, res) => {
-  const { username, password, role } = req.body;
-  db.query('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', [username, password, role], (err, result) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.status(201).json({ id: result.insertId });
-  });
+router.post('/', protect, isAdmin, async (req, res) => {
+  const { password, email, full_name, role, school_id } = req.body;
+
+  // Validate required fields
+  if (!password || !email || !full_name || !role) {
+    return res.status(400).json({ 
+      error: "Please provide all required fields: password, email, full_name, role" 
+    });
+  }
+
+  try {
+    // Check if user already exists
+    const [existingUser] = await db.promise().query(
+      'SELECT * FROM users WHERE email = ? OR full_name = ?', 
+      [email, full_name]
+    );
+
+    if (existingUser.length > 0) {
+      return res.status(400).json({ 
+        error: 'User with this email or full_name already exists' 
+      });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Fixed INSERT query - removed extra parameter placeholder
+    const [result] = await db.promise().query(
+      'INSERT INTO users (password, email, full_name, role, school_id) VALUES (?, ?, ?, ?, ?)',
+      [hashedPassword, email, full_name, role, school_id || null]
+    );
+
+    res.status(201).json({
+      id: result.insertId,
+      message: 'User created successfully'
+    });
+
+  } catch (err) {
+    console.error('Error creating user:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Update user by ID 
 router.put('/:id', protect, (req, res) => {
   const { id } = req.params;
-  const { username, password, role } = req.body;
+  const { password, role } = req.body;
   db.query(
-    'UPDATE users SET username = ?, password = ?, role = ? WHERE id = ?',
-    [username, password, role, id],
+    'UPDATE users SET full_name = ?, password = ?, role = ? WHERE id = ?',
+    [ password, role, id],
     (err, result) => {
       if (err) return res.status(500).json({ error: err.message });
       if (result.affectedRows === 0) return res.status(404).json({ error: 'User not found' });

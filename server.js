@@ -21,6 +21,8 @@ const registrationRoutes = require('./routes/registrations');
 const feeRoutes = require('./routes/fees');
 const receiptRoutes = require('./routes/receipts');
 const branchRoutes = require('./routes/branches');
+const schoolsRouter = require('./routes/schools');
+const categoriesRouter = require('./routes/categories');
 
 // API routes - Mount ALL your routes
 app.use('/api/auth', authRoutes);
@@ -33,6 +35,8 @@ app.use('/api/registrations', registrationRoutes);
 app.use('/api/fees', feeRoutes);
 app.use('/api/receipts', receiptRoutes);
 app.use('/api/branches', branchRoutes);
+app.use('/api/schools', schoolsRouter);
+app.use('/api/categories', categoriesRouter);
 
 // Server
 const PORT = process.env.SERVER_PORT || 3000;
