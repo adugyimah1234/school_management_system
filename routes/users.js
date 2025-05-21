@@ -6,17 +6,9 @@ const { protect } = require('../middlewares/authMiddleware'); // Import using th
 const userController = require('../controllers/usersController');
 const bcrypt = require('bcryptjs');
 
-// Middleware to check if the user is an admin (adjust as needed)
-const isAdmin = (req, res, next) => {
-  if (req.user && req.user.role === 'admin') {
-    next();
-  } else {
-    return res.status(403).json({ message: 'Not authorized as an admin' });
-  }
-};
 
 // Get all users (consider protecting this as well)
-router.get('/', protect, isAdmin, (req, res) => {
+router.get('/', protect,  (req, res) => {
   db.query('SELECT * FROM users', (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(results);
@@ -26,13 +18,13 @@ router.get('/', protect, isAdmin, (req, res) => {
 router.get('/:id', protect, userController.getUserById);
 
 // Create new user (protected for admins)
-router.post('/', protect, isAdmin, async (req, res) => {
-  const { password, email, full_name, role, school_id } = req.body;
+router.post('/', async (req, res) => {
+  const { password, email, full_name, role_id, school_id } = req.body;
 
   // Validate required fields
-  if (!password || !email || !full_name || !role) {
+  if (!password || !email || !full_name || !role_id) {
     return res.status(400).json({ 
-      error: "Please provide all required fields: password, email, full_name, role" 
+      error: "Please provide all required fields: password, email, full_name, role_id" 
     });
   }
 
@@ -55,8 +47,8 @@ router.post('/', protect, isAdmin, async (req, res) => {
 
     // Fixed INSERT query - removed extra parameter placeholder
     const [result] = await db.promise().query(
-      'INSERT INTO users (password, email, full_name, role, school_id) VALUES (?, ?, ?, ?, ?)',
-      [hashedPassword, email, full_name, role, school_id || null]
+      'INSERT INTO users (password, email, full_name, role_id, school_id) VALUES (?, ?, ?, ?, ?)',
+      [hashedPassword, email, full_name, role_id, school_id || null]
     );
 
     res.status(201).json({
@@ -73,10 +65,10 @@ router.post('/', protect, isAdmin, async (req, res) => {
 // Update user by ID 
 router.put('/:id', protect, (req, res) => {
   const { id } = req.params;
-  const { password, role } = req.body;
+  const { password, role_id } = req.body;
   db.query(
-    'UPDATE users SET full_name = ?, password = ?, role = ? WHERE id = ?',
-    [ password, role, id],
+    'UPDATE users SET full_name = ?, password = ?, role_id = ? WHERE id = ?',
+    [ password, role_id, id],
     (err, result) => {
       if (err) return res.status(500).json({ error: err.message });
       if (result.affectedRows === 0) return res.status(404).json({ error: 'User not found' });
@@ -86,7 +78,7 @@ router.put('/:id', protect, (req, res) => {
 });
 
 // Delete user by ID (admin only)
-router.delete('/:id', protect, isAdmin, (req, res) => {
+router.delete('/:id', protect,  (req, res) => {
   const { id } = req.params;
   db.query('DELETE FROM users WHERE id = ?', [id], (err, result) => {
     if (err) return res.status(500).json({ error: err.message });

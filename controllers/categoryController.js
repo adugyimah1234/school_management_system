@@ -9,6 +9,26 @@ exports.getAllCategories = async (req, res) => {
   }
 };
 
+exports.getCategoryById = async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const [categories] = await db.promise().query(
+      'SELECT * FROM categories WHERE id = ?',
+      [id]
+    );
+    
+    if (categories.length === 0) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+    
+    res.json(categories[0]);
+  } catch (error) {
+    console.error('Error fetching category:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 exports.createCategory = async (req, res) => {
   const { name } = req.body;
 

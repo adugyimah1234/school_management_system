@@ -4,7 +4,7 @@ const db = require("../config/db");
 const { protect } = require("../middlewares/authMiddleware"); // Add this line
 
 // Get all registrations
-router.get("/", (req, res) => {
+router.get("/", protect, (req, res) => {
   db.query("SELECT * FROM registrations", (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(results);
@@ -12,7 +12,7 @@ router.get("/", (req, res) => {
 });
 
 // Register a student
-router.post("/create", async (req, res) => {
+router.post("/create", protect, async (req, res) => {
   const {
     first_name,
     middle_name,
@@ -97,7 +97,7 @@ router.post("/create", async (req, res) => {
 });
 
 // Get a single registration by ID
-router.get("/:id", (req, res) => {
+router.get("/:id", protect, (req, res) => {
   const { id } = req.params;
   db.query("SELECT * FROM registrations WHERE id = ?", [id], (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
