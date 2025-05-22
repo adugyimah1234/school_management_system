@@ -28,6 +28,7 @@ router.post("/create", protect, async (req, res) => {
     relationship,
     guardian_phone_number,
     academic_year_id,
+    status = 'pending' // Add default status
   } = req.body;
 
   if (
@@ -70,7 +71,7 @@ router.post("/create", protect, async (req, res) => {
     const [result] = await db
       .promise()
       .query(
-        "INSERT INTO registrations (first_name, middle_name, last_name, category, date_of_birth, class_applying_for, gender, email, phone_number, address, guardian_name, relationship, guardian_phone_number, academic_year_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO registrations (first_name, middle_name, last_name, category, date_of_birth, class_applying_for, gender, email, phone_number, address, guardian_name, relationship, guardian_phone_number, academic_year_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [
           first_name,
           middle_name,
@@ -86,10 +87,11 @@ router.post("/create", protect, async (req, res) => {
           relationship,
           guardian_phone_number,
           academic_year_id,
+          status
         ]
       );
 
-    res.status(201).json({ id: result.insertId });
+    res.status(201).json({ id: result.insertId, status });
   } catch (err) {
     console.error("DB Error:", err);
     res.status(500).json({ error: err.message });
@@ -190,6 +192,38 @@ router.put("/:id", protect, async (req, res) => { // Add protect middleware
   }
 });
 
+// Add a new route to update registration status (admin only)
+router.patch("/:id/status", protect, async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  // Check if user is admin
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({ error: "Only admins can update registration status." });
+  }
+
+  // Validate status
+  if (!status || !['pending', 'approved', 'rejected'].includes(status)) {
+    return res.status(400).json({ error: "Invalid status. Must be 'pending', 'approved', or 'rejected'" });
+  }
+
+  try {
+    const [result] = await db
+      .promise()
+      .query(
+        "UPDATE registrations SET status = ? WHERE id = ?",
+        [status, id]
+      );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Registration not found." });
+    }
+
+    res.json({ message: "Registration status updated successfully.", status });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Delete a registration by ID
 router.delete("/:id", protect, (req, res) => { // Add protect middleware
@@ -206,6 +240,5 @@ router.delete("/:id", protect, (req, res) => { // Add protect middleware
     res.json({ message: "Registration deleted successfully." });
   });
 });
-
 
 module.exports = router;

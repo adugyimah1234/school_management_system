@@ -7,33 +7,13 @@ const db = require('../config/db'); // Database connection
  */
 exports.getFee = async (req, res) => {
   try {
-    const { category, classLevel } = req.query;
-    
-    // Validate required parameters
-    if (!category || !classLevel) {
-      return res.status(400).json({ 
-        error: 'Category and class level are required parameters' 
-      });
-    }
-    
-    // Query database for fee
-    const [result] = await db.promise().query(
-      `SELECT f.*, c.name as category_name, cl.name as class_name, s.name as school_name
-       FROM fees f
-       JOIN categories c ON f.category_id = c.id
-       JOIN classes cl ON f.class_id = cl.id
-       LEFT JOIN schools s ON f.school_id = s.id
-       WHERE f.category_id = ? AND cl.grade_level = ?`,
-      [category, classLevel]
+    const [fees] = await db.promise().query(
+      'SELECT f.*, c.name as category_name, ay.year as academic_year FROM fees f ' +
+      'LEFT JOIN categories c ON f.category_id = c.id ' +
+      'LEFT JOIN academic_years ay ON f.academic_year_id = ay.id'
     );
-    
-    if (result.length === 0) {
-      return res.status(404).json({ error: 'Fee structure not found' });
-    }
-    
-    res.json(result[0]);
+    res.json(fees);
   } catch (err) {
-    console.error('Error fetching fee:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -174,94 +154,27 @@ exports.createFee = async (req, res) => {
  * @access Private (Admin)
  */
 exports.updateFee = async (req, res) => {
+  const { id } = req.params;
+  const { amount, category_id, academic_year_id, description } = req.body;
+
+  if (!amount || !category_id || !academic_year_id) {
+    return res.status(400).json({
+      error: "Please provide all required fields: amount, category_id, academic_year_id"
+    });
+  }
+
   try {
-    const { id } = req.params;
-    const { 
-      category_id, 
-      class_id, 
-      fee_type, 
-      amount, 
-      description, 
-      effective_date,
-      school_id 
-    } = req.body;
-    
-    // Check if fee exists
-    const [existing] = await db.promise().query(
-      'SELECT id FROM fees WHERE id = ?',
-      [id]
+    const [result] = await db.promise().query(
+      'UPDATE fees SET amount = ?, category_id = ?, academic_year_id = ?, description = ? WHERE id = ?',
+      [amount, category_id, academic_year_id, description, id]
     );
-    
-    if (existing.length === 0) {
-      return res.status(404).json({ error: 'Fee structure not found' });
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Fee not found' });
     }
-    
-    // Validate fee type if provided
-    if (fee_type) {
-      const validFeeTypes = ['registration', 'admission', 'tuition', 'exam'];
-      if (!validFeeTypes.includes(fee_type)) {
-        return res.status(400).json({ 
-          error: `Fee type must be one of: ${validFeeTypes.join(', ')}` 
-        });
-      }
-    }
-    
-    // Build update fields and values
-    const updateFields = [];
-    const updateValues = [];
-    
-    if (category_id) {
-      updateFields.push('category_id = ?');
-      updateValues.push(category_id);
-    }
-    
-    if (class_id) {
-      updateFields.push('class_id = ?');
-      updateValues.push(class_id);
-    }
-    
-    if (fee_type) {
-      updateFields.push('fee_type = ?');
-      updateValues.push(fee_type);
-    }
-    
-    if (amount) {
-      updateFields.push('amount = ?');
-      updateValues.push(amount);
-    }
-    
-    if (description !== undefined) {
-      updateFields.push('description = ?');
-      updateValues.push(description);
-    }
-    
-    if (effective_date) {
-      updateFields.push('effective_date = ?');
-      updateValues.push(effective_date);
-    }
-    
-    if (school_id !== undefined) {
-      updateFields.push('school_id = ?');
-      updateValues.push(school_id);
-    }
-    
-    // If no updates provided
-    if (updateFields.length === 0) {
-      return res.status(400).json({ error: 'No update data provided' });
-    }
-    
-    // Add id to values array
-    updateValues.push(id);
-    
-    // Execute update
-    await db.promise().query(
-      `UPDATE fees SET ${updateFields.join(', ')} WHERE id = ?`,
-      updateValues
-    );
-    
-    res.json({ message: 'Fee structure updated successfully' });
+
+    res.json({ message: 'Fee updated successfully' });
   } catch (err) {
-    console.error('Error updating fee:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -272,37 +185,17 @@ exports.updateFee = async (req, res) => {
  * @access Private (Admin)
  */
 exports.deleteFee = async (req, res) => {
+  const { id } = req.params;
+
   try {
-    const { id } = req.params;
-    
-    // Check if fee exists
-    const [existing] = await db.promise().query(
-      'SELECT id FROM fees WHERE id = ?',
-      [id]
-    );
-    
-    if (existing.length === 0) {
-      return res.status(404).json({ error: 'Fee structure not found' });
+    const [result] = await db.promise().query('DELETE FROM fees WHERE id = ?', [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Fee not found' });
     }
-    
-    // Check if fee is being used in any payments
-    const [usedInPayments] = await db.promise().query(
-      'SELECT COUNT(*) as count FROM payments WHERE fee_id = ?',
-      [id]
-    );
-    
-    if (usedInPayments[0].count > 0) {
-      return res.status(400).json({ 
-        error: 'Cannot delete fee structure that is being used in payments' 
-      });
-    }
-    
-    // Delete fee
-    await db.promise().query('DELETE FROM fees WHERE id = ?', [id]);
-    
-    res.json({ message: 'Fee structure deleted successfully' });
+
+    res.json({ message: 'Fee deleted successfully' });
   } catch (err) {
-    console.error('Error deleting fee:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -313,76 +206,23 @@ exports.deleteFee = async (req, res) => {
  * @access Private
  */
 exports.getOutstandingFees = async (req, res) => {
+  const { studentId } = req.params;
+
   try {
-    const { studentId } = req.params;
-    
-    // Validate student id
-    if (!studentId) {
-      return res.status(400).json({ error: 'Student ID is required' });
-    }
-    
-    // Check if student exists
-    const [student] = await db.promise().query(
-      'SELECT id FROM students WHERE id = ?',
-      [studentId]
-    );
-    
-    if (student.length === 0) {
-      return res.status(404).json({ error: 'Student not found' });
-    }
-    
-    // Get student class and category
-    const [studentInfo] = await db.promise().query(
-      'SELECT class_id, category_id FROM students WHERE id = ?',
-      [studentId]
-    );
-    
-    if (!studentInfo[0].class_id) {
-      return res.status(400).json({ 
-        error: 'Student does not have an assigned class' 
-      });
-    }
-    
-    // Get all applicable fees for student's class and category
     const [fees] = await db.promise().query(
-      `SELECT f.*, c.name as category_name, cl.name as class_name, s.name as school_name
+      `SELECT f.*, c.name as category_name, ay.year as academic_year,
+       (f.amount - COALESCE(SUM(p.amount), 0)) as outstanding_amount
        FROM fees f
-       JOIN categories c ON f.category_id = c.id
-       JOIN classes cl ON f.class_id = cl.id
-       LEFT JOIN schools s ON f.school_id = s.id
-       WHERE f.category_id = ? AND f.class_id = ?`,
-      [studentInfo[0].category_id, studentInfo[0].class_id]
-    );
-    
-    // Get all payments made by student
-    const [payments] = await db.promise().query(
-      `SELECT SUM(amount_paid) as total_paid, fee_id
-       FROM payments
-       WHERE student_id = ?
-       GROUP BY fee_id`,
+       LEFT JOIN categories c ON f.category_id = c.id
+       LEFT JOIN academic_years ay ON f.academic_year_id = ay.id
+       LEFT JOIN payments p ON f.id = p.fee_id AND p.student_id = ?
+       GROUP BY f.id
+       HAVING outstanding_amount > 0`,
       [studentId]
     );
-    
-    // Calculate outstanding amounts
-    const outstandingFees = fees.map(fee => {
-      const payment = payments.find(p => p.fee_id === fee.id);
-      const totalPaid = payment ? payment.total_paid : 0;
-      const outstanding = fee.amount - totalPaid;
-      
-      return {
-        ...fee,
-        total_paid: totalPaid,
-        outstanding_amount: outstanding > 0 ? outstanding : 0,
-        is_paid: outstanding <= 0
-      };
-    });
-    
-    // Filter to show only unpaid fees
-    const unpaidFees = outstandingFees.filter(fee => fee.outstanding_amount > 0);
-    
-    res.json(unpaidFees);
+
+    res.json(fees);
   } catch (err) {
-    console.error('Error fetching outstanding fees:', err);
     res.status(500).json({ error: err.message });
   }
 };

@@ -2,6 +2,13 @@ const express = require('express');
 const app = express();
 require('dotenv').config();
 const cors = require('cors');
+const db = require('./config/db');
+
+// Error handling for uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  process.exit(1);
+});
 
 // Apply middleware first - before route handlers
 const corsOptions = {
@@ -45,6 +52,40 @@ app.use('/api/schools', schoolsRouter);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/modules', moduleRoutes);
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    error: 'Something went wrong!',
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
+
 // Server
 const PORT = process.env.SERVER_PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+const server = app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
+// Error handling for unhandled promise rejections
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled Rejection:', err);
+  // Graceful shutdown
+  server.close(() => process.exit(1));
+});
+
+// Handle server shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received. Shutting down gracefully...');
+  server.close(() => {
+    console.log('Process terminated');
+    db.end(() => process.exit(0));
+  });
+});
+
+// Handle system signals for graceful shutdown
+process.on('SIGINT', () => {
+  console.log('SIGINT received. Shutting down gracefully...');
+  server.close(() => {
+    console.log('Process terminated');
+    db.end(() => process.exit(0));
+  });
+});

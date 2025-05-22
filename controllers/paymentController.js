@@ -319,7 +319,7 @@ exports.getStudentPaymentHistory = async (req, res) => {
 };
 
 const Payment = require('../models/paymentModel');
-const db = require('../config/db'); // your mysql db connection
+// const db = require('../config/db');
 
 exports.recordPayment = (req, res) => {
   Payment.recordPayment(req.body, (err, result) => {
