@@ -31,6 +31,7 @@ const receiptRoutes = require('./routes/receipts');
 const branchRoutes = require('./routes/branches');
 const schoolsRouter = require('./routes/schools');
 const categoriesRouter = require('./routes/categories');
+const academicYearsRouter = require('./routes/academicYears');
 const roleRoutes = require('./routes/role.routes');
 const moduleRoutes = require('./routes/module'); // Import without .js extension
 
@@ -45,6 +46,7 @@ app.use('/api/parents', parentRoutes);
 app.use('/api/classes', classRoutes);
 app.use('/api/admissions', admissionRoutes);
 app.use('/api/registrations', registrationRoutes);
+app.use('/api/academic-years', academicYearsRouter);
 app.use('/api/fees', feeRoutes);
 app.use('/api/receipts', receiptRoutes);
 app.use('/api/branches', branchRoutes);
