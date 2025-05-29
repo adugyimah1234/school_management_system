@@ -9,4 +9,9 @@ const Student = {
   }
 };
 
+exports.findByNameAndDOB = ( first_name, last_name, middle_name, dob, callback) => {
+  const query = `SELECT * FROM students WHERE first_name = ?, last_name = ?, middle_name = ?, dob = ?`;
+  db.query(query, [first_name, last_name, middle_name, dob], callback);
+};
+
 module.exports = Student;

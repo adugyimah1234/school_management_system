@@ -112,12 +112,12 @@ router.get('/:id', protect, async (req, res) => {
  * @access  Private (Admin only)
  */
 router.post('/', protect, isAdmin, async (req, res) => {
-  const { name, level, school_id } = req.body;
+  const { name, level, slots, school_id } = req.body;
   
   // Validate required fields
   if (!name || !level || !school_id) {
     return res.status(400).json({ 
-      error: 'Please provide all required fields: name, level, school_id' 
+      error: 'Please provide all required fields: name, level, slots, school_id' 
     });
   }
   
@@ -153,8 +153,8 @@ router.post('/', protect, isAdmin, async (req, res) => {
     
     // Create new class
     const [result] = await db.promise().query(
-      'INSERT INTO classes (name, level, school_id) VALUES (?, ?, ?)',
-      [name, level, school_id]
+      'INSERT INTO classes (name, level, slots, school_id) VALUES (?, ?, ?, ?)',
+      [name, level, slots, school_id]
     );
     
     res.status(201).json({
@@ -174,7 +174,7 @@ router.post('/', protect, isAdmin, async (req, res) => {
  */
 router.put('/:id', protect, isAdmin, async (req, res) => {
   const { id } = req.params;
-  const { name, level, school_id } = req.body;
+  const { name, level, slots, school_id } = req.body;
   
   // Validate required fields
   if (!name || !level || !school_id) {
@@ -225,8 +225,8 @@ router.put('/:id', protect, isAdmin, async (req, res) => {
     
     // Update class
     const [result] = await db.promise().query(
-      'UPDATE classes SET name = ?, level = ?, school_id = ? WHERE id = ?',
-      [name, level, school_id, id]
+      'UPDATE classes SET name = ?, level = ?, slots = ?, school_id = ? WHERE id = ?',
+      [name, level, slots, school_id, id]
     );
     
     res.json({

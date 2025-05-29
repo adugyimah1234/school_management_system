@@ -5,7 +5,9 @@ require('dotenv').config();
 
 const generateToken = (user) => {
   return jwt.sign(
-    { id: user.id, role: user.role, school_id: user.school_id },
+    { id: user.id, 
+      role: user.role, 
+      school_id: user.school_id },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN }
   );
@@ -14,7 +16,13 @@ const generateToken = (user) => {
 exports.login = (req, res) => {
   const { email, password } = req.body;
 
-  const sql = 'SELECT * FROM users WHERE email = ?';
+  const sql = `
+    SELECT users.*, roles.name AS role 
+    FROM users 
+    JOIN roles ON users.role_id = roles.id 
+    WHERE users.email = ?
+  `;
+
   db.query(sql, [email], async (err, results) => {
     if (err) return res.status(500).json({ message: 'DB error', err });
 
@@ -24,10 +32,15 @@ exports.login = (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ message: 'Invalid email or password' });
 
-    const token = generateToken(user);
-    res.status(200).json({ message: 'Login successful', token, user: { id: user.id, role: user.role } });
+    const token = generateToken(user); // now includes role name like "admin"
+    res.status(200).json({
+      message: 'Login successful',
+      token,
+      user: { id: user.id, role: user.role }
+    });
   });
 };
+
 
 exports.register = async (req, res) => {
   try {
