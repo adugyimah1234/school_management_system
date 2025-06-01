@@ -39,7 +39,6 @@ router.post("/create", protect, async (req, res) => {
     !date_of_birth ||
     !class_applying_for ||
     !gender ||
-    !phone_number ||
     !address ||
     !guardian_name ||
     !relationship ||
