@@ -175,7 +175,6 @@ exports.getReceipt = async (req, res) => {
       `SELECT r.*, 
              s.first_name, s.middle_name, s.last_name, s.admission_status,
              CONCAT(s.first_name, ' ', COALESCE(s.middle_name, ''), ' ', s.last_name) as student_name,
-             c.name as class_name, c.grade_level,
              CONCAT(u.full_name) as issued_by_name,
              sch.name as school_name, sch.address as school_address, sch.phone_number as school_phone,
              p.payment_date, p.amount_paid, p.installment_number,
@@ -197,6 +196,12 @@ exports.getReceipt = async (req, res) => {
     // Format data for official receipt view
     const receipt = result[0];
     
+const baseUrl = `${req.protocol}://${req.get('host')}`;
+const logoSrc = receipt.logo_url?.startsWith('http')
+  ? receipt.logo_url
+  : `${baseUrl}${receipt.logo_url}`;
+
+
     // Format dates
     const dateIssued = new Date(receipt.date_issued);
     const formattedDate = dateIssued.toLocaleDateString('en-US', {
@@ -238,6 +243,7 @@ exports.createReceipt = async (req, res) => {
       logo_url,
       exam_date,
       class_id,
+      exam_id,
       school_id 
     } = req.body;
     
@@ -301,12 +307,12 @@ exports.createReceipt = async (req, res) => {
         return res.status(400).json({ error: 'A receipt already exists for this payment' });
       }
     }
-    
+    const DEFAULT_LOGO = process.env.FRONTEND_URL + '/assets/logo.png';
     // Insert receipt record
     const [result] = await db.promise().query(
       `INSERT INTO receipts 
-       (student_id, payment_id, receipt_type, amount, issued_by, date_issued, venue, logo_url, exam_date, class_id, school_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (student_id, payment_id, receipt_type, amount, issued_by, date_issued, venue, logo_url, exam_date, exam_id, class_id, school_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         student_id, 
         payment_id || null, 
@@ -315,8 +321,9 @@ exports.createReceipt = async (req, res) => {
         issued_by,
         receiptDate,
         venue || null,
-        logo_url || null,
+        logo_url || DEFAULT_LOGO,
         exam_date || null,
+        exam_id || null,
         classId || null,
         school_id || null
       ]
@@ -336,6 +343,26 @@ exports.createReceipt = async (req, res) => {
       [result.insertId]
     );
     
+
+// (Optional: validate exam_id)
+let examDetails = null;
+if (exam_id) {
+  const [examRes] = await db.promise().query(
+    `SELECT e.*, c.name as class_name, cat.name as category_name 
+     FROM exams e 
+     LEFT JOIN classes c ON e.class_id = c.id
+     LEFT JOIN categories cat ON e.category_id = cat.id
+     WHERE e.id = ?`,
+    [exam_id]
+  );
+
+  if (examRes.length === 0) {
+    return res.status(400).json({ error: 'Exam not found' });
+  }
+
+  examDetails = examRes[0];
+}
+
     // Format receipt number
     const receiptNumber = `R-${result.insertId.toString().padStart(6, '0')}`;
     
@@ -364,14 +391,18 @@ exports.getPrintableReceipt = async (req, res) => {
       `SELECT r.*, 
              s.first_name, s.middle_name, s.last_name,
              CONCAT(s.first_name, ' ', COALESCE(s.middle_name, ''), ' ', s.last_name) as student_name,
-             c.name as class_name, c.grade_level,
              CONCAT(u.full_name) as issued_by_name,
              sch.name as school_name, sch.address as school_address, sch.phone_number as school_phone,
              p.payment_date, p.amount_paid
+             e.name as exam_name, e.date as exam_date, e.venue as exam_venue, 
+cat.name as category_name
+
        FROM receipts r
        JOIN students s ON r.student_id = s.id
        LEFT JOIN classes c ON r.class_id = c.id
        LEFT JOIN users u ON r.issued_by = u.id
+       LEFT JOIN exams e ON r.exam_id = e.id
+       LEFT JOIN categories cat ON e.category_id = cat.id
        LEFT JOIN schools sch ON r.school_id = sch.id
        LEFT JOIN payments p ON r.payment_id = p.id
        WHERE r.id = ?`,
@@ -428,7 +459,7 @@ exports.getPrintableReceipt = async (req, res) => {
       <body>
         <div class="receipt">
           <div class="header">
-            ${receipt.logo_url ? `<img src="${receipt.logo_url}" class="logo" />` : ''}
+            ${receipt.logo_url ? `<img src="${logoSrc}" class="logo" />` : ''}
             <div class="title">${receipt.school_name || 'School Management System'}</div>
             <div>${receipt.school_address || ''}</div>
             <div>${receipt.school_phone ? `Tel: ${receipt.school_phone}` : ''}</div>
@@ -471,13 +502,37 @@ exports.getPrintableReceipt = async (req, res) => {
                 year: 'numeric'
               })}</div>
             </div>` : ''}
+            ${receipt.receipt_type === 'registration' ? `
+  <div class="payment-details">
+    <div class="row">
+      <div class="label">Exam:</div>
+      <div class="value">${receipt.exam_name || '3GS.E.C. Exams'}</div>
+    </div>
+    <div class="row">
+      <div class="label">Category:</div>
+      <div class="value">${receipt.category_name || ''}</div>
+    </div>
+    <div class="row">
+      <div class="label">Venue:</div>
+      <div class="value">${receipt.exam_venue || ''}</div>
+    </div>
+    <div class="row">
+      <div class="label">Exam Date:</div>
+      <div class="value">${receipt.exam_date ? new Date(receipt.exam_date).toLocaleDateString('en-US', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      }) : ''}</div>
+    </div>
+  </div>
+` : ''}
             <div class="row">
               <div class="label">Amount:</div>
-              <div class="value amount">$${parseFloat(receipt.amount).toFixed(2)}</div>
+              <div class="value amount">GHC${parseFloat(receipt.amount).toFixed(2)}</div>
             </div>
             <div class="row">
               <div class="label">Amount in Words:</div>
-              <div class="value">${amountInWords} dollars only</div>
+              <div class="value">${amountInWords} cedis only</div>
             </div>
           </div>
           
