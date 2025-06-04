@@ -48,12 +48,12 @@ router.get('/:id', protect, async (req, res) => {
 
 // Create a new academic year - admin only
 router.post('/', protect, isAdmin, async (req, res) => {
-  const { name, start_date, end_date, is_active } = req.body;
+  const { year, start_date, end_date, is_active } = req.body;
   
   // Validate required fields
-  if (!name || !start_date || !end_date) {
-    return res.status(400).json({ 
-      error: 'Please provide all required fields: name, start_date, end_date' 
+  if (!year || !start_date || !end_date) {
+    return res.status(400).json({
+      error: 'Please provide all required fields: year, start_date, end_date'
     });
   }
   
@@ -86,8 +86,8 @@ router.post('/', protect, isAdmin, async (req, res) => {
     
     // Insert new academic year
     const [result] = await db.promise().query(
-      'INSERT INTO academic_years (name, start_date, end_date, is_active) VALUES (?, ?, ?, ?)',
-      [name, start_date, end_date, activeStatus]
+      'INSERT INTO academic_years (year, start_date, end_date, is_active) VALUES (?, ?, ?, ?)',
+      [year, start_date, end_date, activeStatus]
     );
     
     res.status(201).json({
@@ -103,12 +103,12 @@ router.post('/', protect, isAdmin, async (req, res) => {
 // Update academic year - admin only
 router.put('/:id', protect, isAdmin, async (req, res) => {
   const { id } = req.params;
-  const { name, start_date, end_date, is_active } = req.body;
-  
+  const { year, start_date, end_date, is_active } = req.body;
+
   // Validate required fields
-  if (!name || !start_date || !end_date) {
+  if (!year || !start_date || !end_date) {
     return res.status(400).json({ 
-      error: 'Please provide all required fields: name, start_date, end_date' 
+      error: 'Please provide all required fields: year, start_date, end_date' 
     });
   }
   
@@ -149,8 +149,8 @@ router.put('/:id', protect, isAdmin, async (req, res) => {
     
     // Update the academic year
     const [result] = await db.promise().query(
-      'UPDATE academic_years SET name = ?, start_date = ?, end_date = ?, is_active = ? WHERE id = ?',
-      [name, start_date, end_date, is_active !== undefined ? is_active : false, id]
+      'UPDATE academic_years SET year = ?, start_date = ?, end_date = ?, is_active = ? WHERE id = ?',
+      [year, start_date, end_date, is_active !== undefined ? is_active : false, id]
     );
     
     res.json({ 

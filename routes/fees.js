@@ -15,7 +15,7 @@ router.get('/', protect, (req, res) => {
 });
 
 router.post('/', protect, async (req, res) => {
-  const { amount, category_id, academic_year_id, description } = req.body;
+  const { amount, category_id, description, academic_year_id } = req.body;
 
   // Validate required fields
   if (!amount || !category_id || !academic_year_id) {
@@ -26,8 +26,8 @@ router.post('/', protect, async (req, res) => {
 
   try {
     const [result] = await db.promise().query(
-      'INSERT INTO fees (amount, category_id, academic_year_id, description) VALUES (?, ?, ?, ?)',
-      [amount, category_id, academic_year_id, description]
+      'INSERT INTO fees (amount, category_id, description, academic_year_id) VALUES (?, ?, ?, ?)',
+      [amount, category_id, description, academic_year_id]
     );
 
     res.status(201).json({
@@ -46,7 +46,7 @@ router.put('/:id',
   isAdmin, // Authorization middleware
   (req, res) => {
     const { id } = req.params;
-    const { amount, category_id, academic_year_id, description } = req.body;
+    const { amount, category_id, description, academic_year_id } = req.body;
 
     if (!amount || !category_id || !academic_year_id) {
       return res.status(400).json({
@@ -55,8 +55,8 @@ router.put('/:id',
     }
 
     db.promise().query(
-      'UPDATE fees SET amount = ?, category_id = ?, academic_year_id = ?, description = ? WHERE id = ?',
-      [amount, category_id, academic_year_id, description, id]
+      'UPDATE fees SET amount = ?, category_id = ?, description = ?, academic_year_id = ? WHERE id = ?',
+      [amount, category_id, description, academic_year_id, id]
     )
     .then(([result]) => {
       if (result.affectedRows === 0) {

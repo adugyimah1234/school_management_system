@@ -191,6 +191,54 @@ router.put("/:id", protect, async (req, res) => { // Add protect middleware
   }
 });
 
+router.patch("/:id", protect, async (req, res) => {
+  const { id } = req.params;
+  const fields = req.body;
+
+  // Only admin can update
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({ error: "Only admins can update registrations." });
+  }
+
+  if (Object.keys(fields).length === 0) {
+    return res.status(400).json({ error: "No fields provided for update." });
+  }
+
+  // Validate academic_year_id if provided
+  if (fields.academic_year_id) {
+    const [academicYearResults] = await db
+      .promise()
+      .query("SELECT COUNT(*) AS count FROM academic_years WHERE id = ?", [
+        fields.academic_year_id,
+      ]);
+    if (academicYearResults[0].count === 0) {
+      return res.status(400).json({ error: "Invalid academic_year_id." });
+    }
+  }
+
+  // Build dynamic SET clause
+  const keys = Object.keys(fields);
+  const values = Object.values(fields);
+  const setClause = keys.map(key => `${key} = ?`).join(", ");
+
+  try {
+    const [result] = await db
+      .promise()
+      .query(
+        `UPDATE registrations SET ${setClause} WHERE id = ?`,
+        [...values, id]
+      );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Registration not found." });
+    }
+
+    res.json({ message: "Registration updated successfully.", updatedFields: fields });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Add a new route to update registration status (admin only)
 router.patch("/:id/status", protect, async (req, res) => {
   const { id } = req.params;
