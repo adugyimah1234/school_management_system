@@ -36,6 +36,7 @@ const categoriesRouter = require('./routes/categories');
 const academicYearsRouter = require('./routes/academicYears');
 const roleRoutes = require('./routes/role.routes');
 const moduleRoutes = require('./routes/module'); // Import without .js extension
+const tuitionRoutes = require('./routes/tuitionRoutes');
 app.use('/uploads/logos', express.static(path.join(__dirname, 'uploads/logos')));
 
 // API routes - Mount routes incrementally to identify the problematic one
@@ -56,7 +57,8 @@ app.use('/api/branches', branchRoutes);
 app.use('/api/schools', schoolsRouter);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/modules', moduleRoutes);
-
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/api/tuition', tuitionRoutes);
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);

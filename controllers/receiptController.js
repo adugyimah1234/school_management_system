@@ -82,6 +82,7 @@ exports.getAllReceipts = async (req, res) => {
   try {
     const { 
       student_id, 
+      registration_id,
       payment_id, 
       receipt_type, 
       date_from, 
@@ -90,20 +91,25 @@ exports.getAllReceipts = async (req, res) => {
     } = req.query;
     
     // Build the base query
-    let query = `
-      SELECT r.*, 
-             CONCAT(s.first_name, ' ', COALESCE(s.middle_name, ''), ' ', s.last_name) as student_name,
-             c.name as class_name,
-             CONCAT(u.full_name) as issued_by_name,
-             sch.name as school_name,
-             p.payment_date, p.amount_paid
-      FROM receipts r
-      JOIN students s ON r.student_id = s.id
-      LEFT JOIN classes c ON r.class_id = c.id
-      LEFT JOIN users u ON r.issued_by = u.id
-      LEFT JOIN schools sch ON r.school_id = sch.id
-      LEFT JOIN payments p ON r.payment_id = p.id
-    `;
+let query = `
+  SELECT r.*, 
+         COALESCE(
+           CONCAT(s.first_name, ' ', COALESCE(s.middle_name, ''), ' ', s.last_name),
+           CONCAT(reg.first_name, ' ', COALESCE(reg.middle_name, ''), ' ', reg.last_name)
+         ) AS student_name,
+         c.name as class_name,
+         CONCAT(u.full_name) as issued_by_name,
+         sch.name as school_name,
+         p.payment_date, p.amount_paid
+  FROM receipts r
+  LEFT JOIN students s ON r.student_id = s.id
+  LEFT JOIN registrations reg ON r.registration_id = reg.id
+  LEFT JOIN classes c ON r.class_id = c.id
+  LEFT JOIN users u ON r.issued_by = u.id
+  LEFT JOIN schools sch ON r.school_id = sch.id
+  LEFT JOIN payments p ON r.payment_id = p.id
+`;
+
     
     const queryParams = [];
     const whereConditions = [];
@@ -195,11 +201,13 @@ exports.getReceipt = async (req, res) => {
     
     // Format data for official receipt view
     const receipt = result[0];
-    
-const baseUrl = `${req.protocol}://${req.get('host')}`;
-const logoSrc = receipt.logo_url?.startsWith('http')
-  ? receipt.logo_url
-  : `${baseUrl}${receipt.logo_url}`;
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    // fallback to default logo path if receipt.logo_url is missing
+    const logoPath = receipt.logo_url || '/assets/logo.png';
+    const logoSrc = logoPath.startsWith('http')
+      ? logoPath
+      : `${baseUrl}${logoPath}`;
+
 
 
     // Format dates
@@ -234,7 +242,7 @@ const logoSrc = receipt.logo_url?.startsWith('http')
 exports.createReceipt = async (req, res) => {
   try {
     const { 
-      student_id, 
+      registration_id,
       payment_id, 
       receipt_type, 
       amount, 
@@ -242,28 +250,21 @@ exports.createReceipt = async (req, res) => {
       venue,
       logo_url,
       exam_date,
-      class_id,
       exam_id,
-      school_id 
+      school_id
     } = req.body;
-    
+
     // Validate required fields
-    if (!student_id || !receipt_type || !amount) {
+    if (!registration_id ) {
+      return res.status(400).json({ error: 'Either registration_id is required' });
+    }
+
+    if (!receipt_type || !amount) {
       return res.status(400).json({ 
-        error: 'Please provide student_id, receipt_type, and amount' 
+        error: 'Please provide receipt_type and amount' 
       });
     }
-    
-    // Check if student exists
-    const [studentExists] = await db.promise().query(
-      'SELECT id, class_id FROM students WHERE id = ?',
-      [student_id]
-    );
-    
-    if (studentExists.length === 0) {
-      return res.status(400).json({ error: 'Student not found' });
-    }
-    
+
     // Validate receipt type
     const validReceiptTypes = ['registration', 'admission', 'tuition', 'exam'];
     if (!validReceiptTypes.includes(receipt_type)) {
@@ -271,111 +272,111 @@ exports.createReceipt = async (req, res) => {
         error: `Receipt type must be one of: ${validReceiptTypes.join(', ')}` 
       });
     }
-    
-    // Set default values
-    const today = new Date().toISOString().split('T')[0];
-    const receiptDate = date_issued || today;
-    
-    // Get class ID from student if not provided
-    const classId = class_id || studentExists[0].class_id;
-    
-    // Current user (from auth middleware)
-    const issued_by = req.user ? req.user.id : null;
-    
+
     // Verify payment if payment_id is provided
     if (payment_id) {
       const [paymentExists] = await db.promise().query(
         'SELECT id, student_id FROM payments WHERE id = ?',
         [payment_id]
       );
-      
+
       if (paymentExists.length === 0) {
         return res.status(400).json({ error: 'Payment not found' });
       }
-      
-      if (paymentExists[0].student_id !== parseInt(student_id)) {
+
+      if (student_id && paymentExists[0].student_id !== parseInt(student_id)) {
         return res.status(400).json({ error: 'Payment does not belong to the specified student' });
       }
-      
-      // Check if a receipt already exists for this payment
+
       const [existingReceipt] = await db.promise().query(
         'SELECT id FROM receipts WHERE payment_id = ?',
         [payment_id]
       );
-      
+
       if (existingReceipt.length > 0) {
         return res.status(400).json({ error: 'A receipt already exists for this payment' });
       }
     }
-    const DEFAULT_LOGO = process.env.FRONTEND_URL + '/assets/logo.png';
-    // Insert receipt record
+
+    // Set defaults
+    const today = new Date().toISOString().split('T')[0];
+    const receiptDate = date_issued || today;
+    const issued_by = req.user ? req.user.id : null;
+const baseUrl = `${req.protocol}://${req.get('host')}`;
+const DEFAULT_LOGO = `${baseUrl}/assets/logo.png`;
+
+
+
+
+
+    // Insert receipt
     const [result] = await db.promise().query(
       `INSERT INTO receipts 
-       (student_id, payment_id, receipt_type, amount, issued_by, date_issued, venue, logo_url, exam_date, exam_id, class_id, school_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (registration_id, payment_id, receipt_type, amount, issued_by, date_issued, venue, logo_url, exam_date, exam_id, school_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        student_id, 
-        payment_id || null, 
-        receipt_type, 
-        amount, 
+        registration_id || null,
+        payment_id || null,
+        receipt_type,
+        amount,
         issued_by,
         receiptDate,
         venue || null,
         logo_url || DEFAULT_LOGO,
         exam_date || null,
         exam_id || null,
-        classId || null,
         school_id || null
       ]
     );
-    
-    // Get the created receipt with details
+
+    // Fetch created receipt with joined name (from student OR registration)
     const [receipt] = await db.promise().query(
       `SELECT r.*, 
-             CONCAT(s.first_name, ' ', COALESCE(s.middle_name, ''), ' ', s.last_name) as student_name,
-             c.name as class_name,
-             sch.name as school_name
+        COALESCE(
+          CONCAT(s.first_name, ' ', COALESCE(s.middle_name, ''), ' ', s.last_name),
+          CONCAT(reg.first_name, ' ', COALESCE(reg.middle_name, ''), ' ', reg.last_name)
+        ) as student_name,
+        c.name as class_name,
+        sch.name as school_name
        FROM receipts r
-       JOIN students s ON r.student_id = s.id
+       LEFT JOIN students s ON r.student_id = s.id
+       LEFT JOIN registrations reg ON r.registration_id = reg.id
        LEFT JOIN classes c ON r.class_id = c.id
        LEFT JOIN schools sch ON r.school_id = sch.id
        WHERE r.id = ?`,
       [result.insertId]
     );
-    
 
-// (Optional: validate exam_id)
-let examDetails = null;
-if (exam_id) {
-  const [examRes] = await db.promise().query(
-    `SELECT e.*, c.name as class_name, cat.name as category_name 
-     FROM exams e 
-     LEFT JOIN classes c ON e.class_id = c.id
-     LEFT JOIN categories cat ON e.category_id = cat.id
-     WHERE e.id = ?`,
-    [exam_id]
-  );
+    // (Optional: validate exam_id)
+    if (exam_id) {
+      const [examRes] = await db.promise().query(
+        `SELECT e.*, c.name as class_name, cat.name as category_name 
+         FROM exams e 
+         LEFT JOIN classes c ON e.class_id = c.id
+         LEFT JOIN categories cat ON e.category_id = cat.id
+         WHERE e.id = ?`,
+        [exam_id]
+      );
 
-  if (examRes.length === 0) {
-    return res.status(400).json({ error: 'Exam not found' });
-  }
+      if (examRes.length === 0) {
+        return res.status(400).json({ error: 'Exam not found' });
+      }
+    }
 
-  examDetails = examRes[0];
-}
-
-    // Format receipt number
+    // Format response
     const receiptNumber = `R-${result.insertId.toString().padStart(6, '0')}`;
-    
-    res.status(201).json({ 
-      message: 'Receipt generated successfully', 
+    res.status(201).json({
+      message: 'Receipt generated successfully',
       data: receipt[0],
       receipt_number: receiptNumber
     });
+
   } catch (err) {
     console.error('Error creating receipt:', err);
     res.status(500).json({ error: err.message });
   }
 };
+
 
 /**
  * Generate a printer-friendly HTML version of a receipt
@@ -387,27 +388,41 @@ exports.getPrintableReceipt = async (req, res) => {
     const { id } = req.params;
     
     // Get receipt details
-    const [result] = await db.promise().query(
-      `SELECT r.*, 
-             s.first_name, s.middle_name, s.last_name,
-             CONCAT(s.first_name, ' ', COALESCE(s.middle_name, ''), ' ', s.last_name) as student_name,
-             CONCAT(u.full_name) as issued_by_name,
-             sch.name as school_name, sch.address as school_address, sch.phone_number as school_phone,
-             p.payment_date, p.amount_paid
-             e.name as exam_name, e.date as exam_date, e.venue as exam_venue, 
-cat.name as category_name
+const [result] = await db.promise().query(
+  `SELECT r.*, 
+     s.first_name, s.middle_name, s.last_name,
+     reg.first_name AS reg_first_name, reg.middle_name AS reg_middle_name, reg.last_name AS reg_last_name,
+     COALESCE(
+       CONCAT(s.first_name, ' ', COALESCE(s.middle_name, ''), ' ', s.last_name),
+       CONCAT(reg.first_name, ' ', COALESCE(reg.middle_name, ''), ' ', reg.last_name)
+     ) AS student_name,
+      COALESCE(c.name, class_apply.name) AS class_name,
+     CONCAT(u.full_name) AS issued_by_name,
+     sch.name AS school_name, 
+     sch.address AS school_address, 
+     sch.phone_number AS school_phone,
+     p.payment_date, 
+     p.amount_paid, 
+     e.name AS exam_name, 
+     e.date AS exam_date, 
+     c.name AS class_name,
+     e.venue AS exam_venue, 
+     cat.name AS category_name
+   FROM receipts r
+   LEFT JOIN students s ON r.student_id = s.id
+   LEFT JOIN registrations reg ON r.registration_id = reg.id
+   LEFT JOIN exams e ON r.exam_id = e.id
+   LEFT JOIN classes c ON c.id = COALESCE(r.class_id, e.class_id)
+   LEFT JOIN classes class_apply ON class_apply.id = reg.class_applying_for
+   LEFT JOIN users u ON r.issued_by = u.id
+   LEFT JOIN categories cat ON e.category_id = cat.id
+   LEFT JOIN schools sch ON r.school_id = sch.id
+   LEFT JOIN payments p ON r.payment_id = p.id
+   WHERE r.id = ?`,
+  [id]
+);
 
-       FROM receipts r
-       JOIN students s ON r.student_id = s.id
-       LEFT JOIN classes c ON r.class_id = c.id
-       LEFT JOIN users u ON r.issued_by = u.id
-       LEFT JOIN exams e ON r.exam_id = e.id
-       LEFT JOIN categories cat ON e.category_id = cat.id
-       LEFT JOIN schools sch ON r.school_id = sch.id
-       LEFT JOIN payments p ON r.payment_id = p.id
-       WHERE r.id = ?`,
-      [id]
-    );
+
     
     if (result.length === 0) {
       return res.status(404).json({ error: 'Receipt not found' });
@@ -426,134 +441,199 @@ cat.name as category_name
     // Format amount in words
     const amountInWords = numberToWords(receipt.amount);
     
+
+const logoSrc = receipt.logo_url?.startsWith('http')
+  ? receipt.logo_url
+  : receipt.logo_url
+    ? `${baseUrl}${receipt.logo_url}`
+    : DEFAULT_LOGO;
+
     // Create HTML template
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Receipt #R-${receipt.id.toString().padStart(6, '0')}</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-          .receipt { border: 1px solid #000; padding: 20px; max-width: 800px; margin: 0 auto; }
-          .header { text-align: center; margin-bottom: 20px; }
-          .logo { max-width: 100px; max-height: 100px; }
-          .title { font-size: 24px; font-weight: bold; margin: 10px 0; }
-          .school-info { margin-bottom: 20px; }
-          .receipt-details { margin-bottom: 20px; }
-          .student-details { margin-bottom: 20px; }
-          .payment-details { margin-bottom: 20px; border: 1px solid #ddd; padding: 10px; }
-          .row { display: flex; margin-bottom: 5px; }
-          .label { font-weight: bold; width: 200px; }
-          .value { flex: 1; }
-          .amount { font-size: 18px; font-weight: bold; }
-          .footer { margin-top: 40px; display: flex; justify-content: space-between; }
-          .signature { width: 45%; text-align: center; }
-          .signature-line { border-top: 1px solid #000; margin-top: 40px; display: inline-block; width: 80%; }
-          @media print {
-            body { margin: 0; }
-            .receipt { border: none; }
-            .no-print { display: none; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="receipt">
-          <div class="header">
-            ${receipt.logo_url ? `<img src="${logoSrc}" class="logo" />` : ''}
-            <div class="title">${receipt.school_name || 'School Management System'}</div>
-            <div>${receipt.school_address || ''}</div>
-            <div>${receipt.school_phone ? `Tel: ${receipt.school_phone}` : ''}</div>
-            <h2>${receipt.receipt_type.toUpperCase()} RECEIPT</h2>
-          </div>
-          
-          <div class="receipt-details">
-            <div class="row">
-              <div class="label">Receipt No:</div>
-              <div class="value">R-${receipt.id.toString().padStart(6, '0')}</div>
-            </div>
-            <div class="row">
-              <div class="label">Date:</div>
-              <div class="value">${formattedDate}</div>
-            </div>
-          </div>
-          
-          <div class="student-details">
-            <div class="row">
-              <div class="label">Student Name:</div>
-              <div class="value">${receipt.student_name}</div>
-            </div>
-            <div class="row">
-              <div class="label">Class:</div>
-              <div class="value">${receipt.class_name || ''} ${receipt.grade_level ? `(${receipt.grade_level})` : ''}</div>
-            </div>
-          </div>
-          
-          <div class="payment-details">
-            <div class="row">
-              <div class="label">Receipt Type:</div>
-              <div class="value">${receipt.receipt_type.charAt(0).toUpperCase() + receipt.receipt_type.slice(1)}</div>
-            </div>
-            ${receipt.payment_date ? `
-            <div class="row">
-              <div class="label">Payment Date:</div>
-              <div class="value">${new Date(receipt.payment_date).toLocaleDateString('en-US', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric'
-              })}</div>
-            </div>` : ''}
-            ${receipt.receipt_type === 'registration' ? `
-  <div class="payment-details">
-    <div class="row">
-      <div class="label">Exam:</div>
-      <div class="value">${receipt.exam_name || '3GS.E.C. Exams'}</div>
+const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Receipt #R-${receipt.id.toString().padStart(6, '0')}</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: #fff;
+      padding: 40px;
+      font-size: 14px;
+      color: #333;
+    }
+
+    .receipt-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 30px 40px;
+      border: 1px solid #ccc;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .logo {
+      height: 90px;
+      margin-bottom: 10px;
+    }
+
+    .school-name {
+      font-size: 22px;
+      font-weight: 600;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: bold;
+      border-bottom: 1px solid #999;
+      margin-top: 30px;
+      margin-bottom: 15px;
+      padding-bottom: 5px;
+    }
+
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+
+    .info-table td {
+      padding: 6px 0;
+      vertical-align: top;
+    }
+
+    .info-table .label {
+      font-weight: 500;
+      width: 200px;
+      color: #555;
+    }
+
+    .amount-section {
+      margin-top: 10px;
+    }
+
+    .amount-label {
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .amount-value {
+      font-size: 18px;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+
+    .signatures {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 50px;
+    }
+
+    .signature-block {
+      width: 40%;
+      text-align: center;
+    }
+
+    .signature-line {
+      border-top: 1px solid #000;
+      margin-top: 60px;
+      margin-bottom: 10px;
+    }
+
+    .print-btn {
+      text-align: center;
+      margin-top: 40px;
+    }
+
+    @media print {
+      .print-btn {
+        display: none;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        background: none;
+      }
+      .receipt-container {
+        border: none;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="receipt-container">
+    <div class="header">
+      <img src="${logoSrc}" class="logo" alt="School Logo" />
+      <div class="school-name">${receipt.school_name || 'School Management System'}</div>
+      <div>${receipt.school_address || ''}</div>
+      <div>${receipt.school_phone ? `Tel: ${receipt.school_phone}` : ''}</div>
+      <h2 style="margin-top: 20px;">${receipt.receipt_type.toUpperCase()} RECEIPT</h2>
     </div>
-    <div class="row">
-      <div class="label">Category:</div>
-      <div class="value">${receipt.category_name || ''}</div>
+
+    <div class="section">
+      <div class="section-title">Receipt Information</div>
+      <table class="info-table">
+        <tr><td class="label">Receipt No:</td><td>R-${receipt.id.toString().padStart(6, '0')}</td></tr>
+        <tr><td class="label">Date Issued:</td><td>${formattedDate}</td></tr>
+      </table>
     </div>
-    <div class="row">
-      <div class="label">Venue:</div>
-      <div class="value">${receipt.exam_venue || ''}</div>
+
+    <div class="section">
+      <div class="section-title">Recipient Information</div>
+      <table class="info-table">
+        <tr><td class="label">Name:</td><td>${receipt.student_name}</td></tr>
+        <tr><td class="label">Class:</td><td>${receipt.class_name || ''}</td></tr>
+      </table>
     </div>
-    <div class="row">
-      <div class="label">Exam Date:</div>
-      <div class="value">${receipt.exam_date ? new Date(receipt.exam_date).toLocaleDateString('en-US', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
-      }) : ''}</div>
+
+    <div class="section">
+      <div class="section-title">Payment Details</div>
+      <table class="info-table">
+        <tr><td class="label">Receipt Type:</td><td>${receipt.receipt_type.charAt(0).toUpperCase() + receipt.receipt_type.slice(1)}</td></tr>
+        ${receipt.payment_date ? `<tr><td class="label">Payment Date:</td><td>${new Date(receipt.payment_date).toLocaleDateString('en-US')}</td></tr>` : ''}
+        <tr>
+          <td class="label amount-label">Amount:</td>
+          <td class="amount-value">GHC ${parseFloat(receipt.amount).toFixed(2)}</td>
+        </tr>
+        <tr><td class="label">Amount in Words:</td><td>${amountInWords} cedis only</td></tr>
+      </table>
+    </div>
+
+    ${receipt.receipt_type === 'registration' ? `
+      <div class="section">
+        <div class="section-title">Exam Details</div>
+        <table class="info-table">
+          <tr><td class="label">Exam:</td><td>${receipt.exam_name || '3GS.E.C. Exams'}</td></tr>
+          <tr><td class="label">Category:</td><td>${receipt.category_name || ''}</td></tr>
+          <tr><td class="label">Venue:</td><td>${receipt.exam_venue || ''}</td></tr>
+          <tr><td class="label">Exam Date:</td><td>${receipt.exam_date ? new Date(receipt.exam_date).toLocaleDateString('en-US') : ''}</td></tr>
+        </table>
+      </div>
+    ` : ''}
+
+    <div class="signatures">
+      <div class="signature-block">
+        <div class="signature-line"></div>
+        <div>Issued By: ${receipt.issued_by_name || '____________'}</div>
+      </div>
+      <div class="signature-block">
+        <div class="signature-line"></div>
+        <div>Received By</div>
+      </div>
+    </div>
+
+    <div class="print-btn">
+      <button onclick="window.print()">Print Receipt</button>
     </div>
   </div>
-` : ''}
-            <div class="row">
-              <div class="label">Amount:</div>
-              <div class="value amount">GHC${parseFloat(receipt.amount).toFixed(2)}</div>
-            </div>
-            <div class="row">
-              <div class="label">Amount in Words:</div>
-              <div class="value">${amountInWords} cedis only</div>
-            </div>
-          </div>
-          
-          <div class="footer">
-            <div class="signature">
-              <div class="signature-line"></div>
-              <div>Issued By: ${receipt.issued_by_name || '_________________'}</div>
-            </div>
-            <div class="signature">
-              <div class="signature-line"></div>
-              <div>Received By</div>
-            </div>
-          </div>
-          
-          <div class="no-print" style="margin-top: 30px; text-align: center;">
-            <button onclick="window.print()">Print Receipt</button>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+</body>
+</html>
+`;
     
     res.send(html);
   } catch (err) {
