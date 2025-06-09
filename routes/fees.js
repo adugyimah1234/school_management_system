@@ -6,6 +6,9 @@ const paymentController = require('../controllers/paymentController');
 const receiptController = require('../controllers/receiptController');
 const { protect, isAdmin } = require('../middlewares/authMiddleware');
 
+console.log('feeController:', feeController);
+console.log('paymentController:', paymentController);
+console.log('receiptController:', receiptController);
 // Fee routes
 router.get('/', protect, (req, res) => {
   db.query('SELECT * FROM fees', (err, results) => {
@@ -41,6 +44,7 @@ router.post('/', protect, async (req, res) => {
 });
 
 router.get('/get', protect, feeController.getFee);
+
 router.put('/:id', 
   protect, // Authentication middleware
   isAdmin, // Authorization middleware

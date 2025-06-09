@@ -65,16 +65,16 @@ router.post('/', async (req, res) => {
 // Update user by ID 
 router.put('/:id', protect, (req, res) => {
   const { id } = req.params;
-  const { password, role_id } = req.body;
+  const { full_name, password, role_id } = req.body;
   db.query(
-    'UPDATE users SET full_name = ?, password = ?, role_id = ? WHERE id = ?',
-    [ password, role_id, id],
-    (err, result) => {
-      if (err) return res.status(500).json({ error: err.message });
-      if (result.affectedRows === 0) return res.status(404).json({ error: 'User not found' });
-      res.json({ message: 'User updated successfully' });
-    }
-  );
+  'UPDATE users SET full_name = ?, password = ?, role_id = ? WHERE id = ?',
+  [ full_name, password, role_id, id ],
+  (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'User not found' });
+    res.json({ message: 'User updated successfully' });
+  }
+);
 });
 
 // Delete user by ID (admin only)

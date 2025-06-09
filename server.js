@@ -13,7 +13,7 @@ process.on('uncaughtException', (err) => {
 
 // Apply middleware first - before route handlers
 const corsOptions = {
-  origin: 'http://localhost:3000', // Specify the exact origin of your frontend
+  origin: ['http://localhost:3000', 'https://3-gec.com'],
   credentials: true,                // Enable sending cookies and authorization headers
 };
 app.use(cors(corsOptions));

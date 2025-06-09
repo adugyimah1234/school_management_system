@@ -179,19 +179,36 @@ exports.getReceipt = async (req, res) => {
     // Query database for receipt with details
     const [result] = await db.promise().query(
       `SELECT r.*, 
-             s.first_name, s.middle_name, s.last_name, s.admission_status,
-             CONCAT(s.first_name, ' ', COALESCE(s.middle_name, ''), ' ', s.last_name) as student_name,
-             CONCAT(u.full_name) as issued_by_name,
-             sch.name as school_name, sch.address as school_address, sch.phone_number as school_phone,
-             p.payment_date, p.amount_paid, p.installment_number,
-             (SELECT fee_type FROM fees WHERE id = p.fee_id) as fee_type
-       FROM receipts r
-       JOIN students s ON r.student_id = s.id
-       LEFT JOIN classes c ON r.class_id = c.id
-       LEFT JOIN users u ON r.issued_by = u.id
-       LEFT JOIN schools sch ON r.school_id = sch.id
-       LEFT JOIN payments p ON r.payment_id = p.id
-       WHERE r.id = ?`,
+  s.first_name, s.middle_name, s.last_name,
+  reg.first_name AS reg_first_name, reg.middle_name AS reg_middle_name, reg.last_name AS reg_last_name,
+  COALESCE(
+    CONCAT(s.first_name, ' ', COALESCE(s.middle_name, ''), ' ', s.last_name),
+    CONCAT(reg.first_name, ' ', COALESCE(reg.middle_name, ''), ' ', reg.last_name)
+  ) AS student_name,
+  COALESCE(c.name, class_apply.name) AS class_name,
+  CONCAT(u.full_name) AS issued_by_name,
+  sch.name AS school_name, 
+  sch.address AS school_address, 
+  sch.phone_number AS school_phone,
+  p.payment_date, 
+  p.amount_paid, 
+p.type AS payment_type,
+p.method AS payment_method
+  e.name AS exam_name, 
+  e.date AS exam_date, 
+  e.venue AS exam_venue, 
+  cat.name AS category_name
+FROM receipts r
+  LEFT JOIN students s ON r.student_id = s.id
+  LEFT JOIN registrations reg ON r.registration_id = reg.id
+  LEFT JOIN payments p ON r.payment_id = p.id
+  LEFT JOIN exams e ON r.exam_id = e.id
+  LEFT JOIN classes c ON c.id = COALESCE(r.class_id, e.class_id)
+  LEFT JOIN classes class_apply ON class_apply.id = reg.class_applying_for
+  LEFT JOIN users u ON r.issued_by = u.id
+  LEFT JOIN categories cat ON e.category_id = cat.id
+  LEFT JOIN schools sch ON r.school_id = sch.id
+WHERE r.id = ?`,
       [id]
     );
     
@@ -306,6 +323,25 @@ const baseUrl = `${req.protocol}://${req.get('host')}`;
 const DEFAULT_LOGO = `${baseUrl}/assets/logo.png`;
 
 
+let resolvedPaymentId = payment_id;
+
+// Automatically create a payment if not provided
+if (!payment_id && receipt_type === 'tuition') { // or any types you want to auto-create
+  const [paymentResult] = await db.promise().query(
+    `INSERT INTO payments 
+      (registration_id, amount, type, method, description, school_id) 
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [
+      registration_id,
+      amount,
+      receipt_type,
+      'cash', // or derive from req.body if available
+      `Auto-created payment for receipt`,
+      school_id
+    ]
+  );
+  resolvedPaymentId = paymentResult.insertId;
+}
 
 
 
@@ -316,7 +352,7 @@ const DEFAULT_LOGO = `${baseUrl}/assets/logo.png`;
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         registration_id || null,
-        payment_id || null,
+        resolvedPaymentId || null,
         receipt_type,
         amount,
         issued_by,
@@ -331,18 +367,27 @@ const DEFAULT_LOGO = `${baseUrl}/assets/logo.png`;
 
     // Fetch created receipt with joined name (from student OR registration)
     const [receipt] = await db.promise().query(
-      `SELECT r.*, 
-        COALESCE(
-          CONCAT(s.first_name, ' ', COALESCE(s.middle_name, ''), ' ', s.last_name),
-          CONCAT(reg.first_name, ' ', COALESCE(reg.middle_name, ''), ' ', reg.last_name)
-        ) as student_name,
-        c.name as class_name,
-        sch.name as school_name
+  `SELECT r.*, 
+    CASE 
+      WHEN r.payment_id IS NOT NULL THEN 'Paid'
+      ELSE 'Issued'
+    END AS payment_method,
+    p.type AS payment_type,
+    p.method AS payment_method,
+
+    COALESCE(
+      CONCAT(s.first_name, ' ', COALESCE(s.middle_name, ''), ' ', s.last_name),
+      CONCAT(reg.first_name, ' ', COALESCE(reg.middle_name, ''), ' ', reg.last_name)
+    ) AS student_name,
+
+    c.name AS class_name,
+    sch.name AS school_name
        FROM receipts r
        LEFT JOIN students s ON r.student_id = s.id
        LEFT JOIN registrations reg ON r.registration_id = reg.id
        LEFT JOIN classes c ON r.class_id = c.id
        LEFT JOIN schools sch ON r.school_id = sch.id
+        LEFT JOIN payments p ON r.payment_id = p.id
        WHERE r.id = ?`,
       [result.insertId]
     );
@@ -365,11 +410,14 @@ const DEFAULT_LOGO = `${baseUrl}/assets/logo.png`;
 
     // Format response
     const receiptNumber = `R-${result.insertId.toString().padStart(6, '0')}`;
-    res.status(201).json({
-      message: 'Receipt generated successfully',
-      data: receipt[0],
-      receipt_number: receiptNumber
-    });
+res.status(201).json({
+  message: 'Receipt generated successfully',
+  data: {
+    ...receipt[0], // includes payment_status
+  },
+  receipt_number: receiptNumber
+});
+
 
   } catch (err) {
     console.error('Error creating receipt:', err);
@@ -407,17 +455,20 @@ const [result] = await db.promise().query(
      e.date AS exam_date, 
      c.name AS class_name,
      e.venue AS exam_venue, 
-     cat.name AS category_name
+     cat.name AS category_name,
+    p.type AS payment_type,
+    p.method AS payment_method
+
    FROM receipts r
    LEFT JOIN students s ON r.student_id = s.id
    LEFT JOIN registrations reg ON r.registration_id = reg.id
+   LEFT JOIN payments p ON r.payment_id = p.id
    LEFT JOIN exams e ON r.exam_id = e.id
    LEFT JOIN classes c ON c.id = COALESCE(r.class_id, e.class_id)
    LEFT JOIN classes class_apply ON class_apply.id = reg.class_applying_for
    LEFT JOIN users u ON r.issued_by = u.id
    LEFT JOIN categories cat ON e.category_id = cat.id
    LEFT JOIN schools sch ON r.school_id = sch.id
-   LEFT JOIN payments p ON r.payment_id = p.id
    WHERE r.id = ?`,
   [id]
 );
@@ -456,20 +507,25 @@ const html = `
   <meta charset="UTF-8" />
   <title>Receipt #R-${receipt.id.toString().padStart(6, '0')}</title>
   <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, sans-serif;
-      background: #fff;
-      padding: 40px;
-      font-size: 14px;
-      color: #333;
-    }
+  body {
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background: #fff;
+    padding: 40px;
+    font-size: 14px;
+    color: #333;
+    position: relative;
+  }
 
-    .receipt-container {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 30px 40px;
-      border: 1px solid #ccc;
-    }
+
+  .receipt-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 40px;
+    border: 1px solid #ccc;
+    position: relative;
+    background: #fff;
+    z-index: 1;
+  }
 
     .header {
       text-align: center;
@@ -477,22 +533,61 @@ const html = `
     }
 
     .logo {
-      height: 90px;
+      height: 80px;
       margin-bottom: 10px;
     }
 
     .school-name {
-      font-size: 22px;
-      font-weight: 600;
+      font-size: 24px;
+      font-weight: 700;
+      text-transform: uppercase;
     }
+
+.watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 500px;
+  transform: translate(-50%, -50%) rotate(-30deg);
+  opacity: 0.12;
+  z-index: 0;
+  pointer-events: none;
+  filter: grayscale(100%);
+}
+  .watermark[onerror] {
+  display: none;
+}
+
+.text-watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-30deg);
+  font-size: 80px;
+  color: #000;
+  opacity: 0.05;
+  white-space: nowrap;
+  z-index: 0;
+  pointer-events: none;
+  font-weight: 700;
+}
+
+
+  .header,
+  .section,
+  .signatures {
+    position: relative;
+    z-index: 2;
+  } 
 
     .section-title {
       font-size: 16px;
       font-weight: bold;
-      border-bottom: 1px solid #999;
+      border-bottom: 1px solid #aaa;
       margin-top: 30px;
       margin-bottom: 15px;
       padding-bottom: 5px;
+      text-transform: uppercase;
     }
 
     .info-table {
@@ -507,30 +602,25 @@ const html = `
     }
 
     .info-table .label {
-      font-weight: 500;
+      font-weight: 600;
       width: 200px;
-      color: #555;
-    }
-
-    .amount-section {
-      margin-top: 10px;
+      color: #444;
     }
 
     .amount-label {
       font-weight: bold;
-      font-size: 16px;
     }
 
     .amount-value {
       font-size: 18px;
       font-weight: bold;
-      margin-left: 10px;
+      color: #111;
     }
 
     .signatures {
       display: flex;
       justify-content: space-between;
-      margin-top: 50px;
+      margin-top: 60px;
     }
 
     .signature-block {
@@ -566,9 +656,11 @@ const html = `
   </style>
 </head>
 <body>
+<img src="${logoSrc}" class="watermark" alt="Watermark Logo" onerror="this.style.display='none'" />
+<div class="text-watermark">SCHOOL COPY</div>
   <div class="receipt-container">
     <div class="header">
-      <img src="${logoSrc}" class="logo" alt="School Logo" />
+      <img src="${logoSrc}" class="logo" alt="School Logo" onerror="this.style.display='none'" />
       <div class="school-name">${receipt.school_name || 'School Management System'}</div>
       <div>${receipt.school_address || ''}</div>
       <div>${receipt.school_phone ? `Tel: ${receipt.school_phone}` : ''}</div>
@@ -576,7 +668,7 @@ const html = `
     </div>
 
     <div class="section">
-      <div class="section-title">Receipt Information</div>
+      <div class="section-title">Receipt Info</div>
       <table class="info-table">
         <tr><td class="label">Receipt No:</td><td>R-${receipt.id.toString().padStart(6, '0')}</td></tr>
         <tr><td class="label">Date Issued:</td><td>${formattedDate}</td></tr>
@@ -584,7 +676,7 @@ const html = `
     </div>
 
     <div class="section">
-      <div class="section-title">Recipient Information</div>
+      <div class="section-title">Recipient Info</div>
       <table class="info-table">
         <tr><td class="label">Name:</td><td>${receipt.student_name}</td></tr>
         <tr><td class="label">Class:</td><td>${receipt.class_name || ''}</td></tr>
@@ -597,10 +689,12 @@ const html = `
         <tr><td class="label">Receipt Type:</td><td>${receipt.receipt_type.charAt(0).toUpperCase() + receipt.receipt_type.slice(1)}</td></tr>
         ${receipt.payment_date ? `<tr><td class="label">Payment Date:</td><td>${new Date(receipt.payment_date).toLocaleDateString('en-US')}</td></tr>` : ''}
         <tr>
-          <td class="label amount-label">Amount:</td>
+          <td class="label amount-label">Amount Paid:</td>
           <td class="amount-value">GHC ${parseFloat(receipt.amount).toFixed(2)}</td>
         </tr>
         <tr><td class="label">Amount in Words:</td><td>${amountInWords} cedis only</td></tr>
+        <tr><td class="label">Method:</td><td>${receipt.payment_method || 'N/A'}</td></tr>
+        <tr><td class="label">Payment Type:</td><td>${receipt.payment_type || 'N/A'}</td></tr>
       </table>
     </div>
 
@@ -628,12 +722,13 @@ const html = `
     </div>
 
     <div class="print-btn">
-      <button onclick="window.print()">Print Receipt</button>
+      <button onclick="window.print()">🖨️ Print Receipt</button>
     </div>
   </div>
 </body>
 </html>
 `;
+
     
     res.send(html);
   } catch (err) {

@@ -1,0 +1,23 @@
+tunnel: gec-tunnel
+credentials-file: C:\Users\user\.cloudflared\d8df3718-fbbd-4a21-b347-9e67a1cb04a5.json
+
+ingress:
+  - hostname: 3-gec.com
+    service: http://localhost:3000
+
+  - hostname: api.3-gec.com
+    service: http://localhost:5000
+
+  - service: http_status:404
+  - service: http_status:503
+# This is a configuration file for Cloudflare Tunnel
+# It defines the tunnel name, credentials file, and ingress rules for routing traffic
+# to different services based on the hostname.
+# The tunnel name is 'gec-tunnel' and the credentials file is specified.
+# The ingress rules route traffic for '3-gec.com' to a service running on port 3000,
+# and 'api.3-gec.com' to a service running on port 5000.
+# Any requests that do not match the specified hostnames will return a 404 or 503 status.
+# The configuration is written in YAML format, which is easy to read and edit.
+# Make sure to replace the hostname and service URLs with your actual values.
+# Ensure that the credentials file path is correct and accessible.
+# This configuration is used by Cloudflare to manage the tunnel and route traffic securely. 
