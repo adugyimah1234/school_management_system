@@ -272,9 +272,16 @@ exports.createReceipt = async (req, res) => {
     } = req.body;
 
     // Validate required fields
-    if (!registration_id ) {
-      return res.status(400).json({ error: 'Either registration_id is required' });
-    }
+if (['registration', 'admission'].includes(receipt_type)) {
+  if (!registration_id) {
+    return res.status(400).json({ error: 'registration_id is required for this receipt type' });
+  }
+} else {
+  if (!req.body.student_id) {
+    return res.status(400).json({ error: 'student_id is required for this receipt type' });
+  }
+}
+
 
     if (!receipt_type || !amount) {
       return res.status(400).json({ 
@@ -283,7 +290,18 @@ exports.createReceipt = async (req, res) => {
     }
 
     // Validate receipt type
-    const validReceiptTypes = ['registration', 'admission', 'tuition', 'exam'];
+const validReceiptTypes = [
+  'registration',
+  'admission',
+  'tuition',
+  'exam',
+  'furniture',
+  'levy',
+  'textBooks',
+  'exerciseBooks',
+  'jersey_crest'
+];
+
     if (!validReceiptTypes.includes(receipt_type)) {
       return res.status(400).json({ 
         error: `Receipt type must be one of: ${validReceiptTypes.join(', ')}` 
@@ -510,7 +528,6 @@ const html = `
   body {
     font-family: 'Segoe UI', Tahoma, sans-serif;
     background: #fff;
-    padding: 40px;
     font-size: 14px;
     color: #333;
     position: relative;
@@ -518,7 +535,7 @@ const html = `
 
 
   .receipt-container {
-    max-width: 800px;
+    max-width: 300px;
     margin: 0 auto;
     padding: 40px;
     border: 1px solid #ccc;
@@ -547,9 +564,9 @@ const html = `
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 500px;
+  width: 200px;
   transform: translate(-50%, -50%) rotate(-30deg);
-  opacity: 0.12;
+  opacity: 0.05;
   z-index: 0;
   pointer-events: none;
   filter: grayscale(100%);
@@ -564,7 +581,7 @@ const html = `
   left: 50%;
   transform: translate(-50%, -50%) rotate(-30deg);
   font-size: 80px;
-  color: #000;
+  color: #0000;
   opacity: 0.05;
   white-space: nowrap;
   z-index: 0;
@@ -614,7 +631,7 @@ const html = `
     .amount-value {
       font-size: 18px;
       font-weight: bold;
-      color: #111;
+      color: #2E6F40;
     }
 
     .signatures {
@@ -656,12 +673,12 @@ const html = `
   </style>
 </head>
 <body>
-<img src="${logoSrc}" class="watermark" alt="Watermark Logo" onerror="this.style.display='none'" />
+<div class="receipt-container">
+<img src="${logoSrc}" class="watermark" alt="Watermark Logo" " />
 <div class="text-watermark">SCHOOL COPY</div>
-  <div class="receipt-container">
     <div class="header">
-      <img src="${logoSrc}" class="logo" alt="School Logo" onerror="this.style.display='none'" />
-      <div class="school-name">${receipt.school_name || 'School Management System'}</div>
+      <img src="${logoSrc}" class="logo" alt="School Logo"" />
+      <div class="school-name">${receipt.school_name || '3 GARRISON EDUCATION CENTRE'}</div>
       <div>${receipt.school_address || ''}</div>
       <div>${receipt.school_phone ? `Tel: ${receipt.school_phone}` : ''}</div>
       <h2 style="margin-top: 20px;">${receipt.receipt_type.toUpperCase()} RECEIPT</h2>
@@ -679,22 +696,6 @@ const html = `
       <div class="section-title">Recipient Info</div>
       <table class="info-table">
         <tr><td class="label">Name:</td><td>${receipt.student_name}</td></tr>
-        <tr><td class="label">Class:</td><td>${receipt.class_name || ''}</td></tr>
-      </table>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Payment Details</div>
-      <table class="info-table">
-        <tr><td class="label">Receipt Type:</td><td>${receipt.receipt_type.charAt(0).toUpperCase() + receipt.receipt_type.slice(1)}</td></tr>
-        ${receipt.payment_date ? `<tr><td class="label">Payment Date:</td><td>${new Date(receipt.payment_date).toLocaleDateString('en-US')}</td></tr>` : ''}
-        <tr>
-          <td class="label amount-label">Amount Paid:</td>
-          <td class="amount-value">GHC ${parseFloat(receipt.amount).toFixed(2)}</td>
-        </tr>
-        <tr><td class="label">Amount in Words:</td><td>${amountInWords} cedis only</td></tr>
-        <tr><td class="label">Method:</td><td>${receipt.payment_method || 'N/A'}</td></tr>
-        <tr><td class="label">Payment Type:</td><td>${receipt.payment_type || 'N/A'}</td></tr>
       </table>
     </div>
 
@@ -712,12 +713,11 @@ const html = `
 
     <div class="signatures">
       <div class="signature-block">
-        <div class="signature-line"></div>
-        <div>Issued By: ${receipt.issued_by_name || '____________'}</div>
+        <div>Issued By: ${receipt.issued_by_name}</div>
       </div>
       <div class="signature-block">
-        <div class="signature-line"></div>
-        <div>Received By</div>
+     <div class="label amount-label">Amount Paid:</div>
+     <div class="amount-value">GHC ${parseFloat(receipt.amount).toFixed(2)}</div>
       </div>
     </div>
 
