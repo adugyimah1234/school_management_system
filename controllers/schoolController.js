@@ -2,7 +2,7 @@ const db = require('../config/db');
 
 exports.getAllSchools = async (req, res) => {
   try {
-    const [schools] = await db.promise().query('SELECT * FROM schools');
+    const [schools] = await db.query('SELECT * FROM schools');
     res.json(schools);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -17,7 +17,7 @@ exports.createSchool = async (req, res) => {
   }
 
   try {
-    const [result] = await db.promise().query(
+    const [result] = await db.query(
       'INSERT INTO schools (name, address, phone_number, email) VALUES (?, ?, ?, ?)',
       [name, address, phone_number, email]
     );
@@ -32,13 +32,15 @@ exports.updateSchool = async (req, res) => {
   const { name, address, phone_number, email } = req.body;
 
   try {
-    const [result] = await db.promise().query(
+    const [result] = await db.query(
       'UPDATE schools SET name = ?, address = ?, phone_number = ?, email = ? WHERE id = ?',
       [name, address, phone_number, email, id]
     );
+
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'School not found' });
     }
+
     res.json({ message: 'School updated successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -47,11 +49,14 @@ exports.updateSchool = async (req, res) => {
 
 exports.deleteSchool = async (req, res) => {
   const { id } = req.params;
+
   try {
-    const [result] = await db.promise().query('DELETE FROM schools WHERE id = ?', [id]);
+    const [result] = await db.query('DELETE FROM schools WHERE id = ?', [id]);
+
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'School not found' });
     }
+
     res.json({ message: 'School deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });

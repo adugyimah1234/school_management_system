@@ -1,24 +1,27 @@
 const db = require('../config/db');
 
 const Role = {
-  getAll: (callback) => {
-    db.query('SELECT * FROM roles', callback);
+  async getAll() {
+    const [rows] = await db.query('SELECT * FROM roles');
+    return rows;
   },
 
-  getById: (id, callback) => {
-    db.query('SELECT * FROM roles WHERE id = ?', [id], callback);
+  async getById(id) {
+    const [rows] = await db.query('SELECT * FROM roles WHERE id = ?', [id]);
+    return rows;
   },
 
-  create: (role, callback) => {
-    db.query('INSERT INTO roles (name, description) VALUES (?, ?)', [role.name, role.description], callback);
+  async create(role) {
+    const [result] = await db.query('INSERT INTO roles SET ?', [role]);
+    return result;
   },
 
-  update: (id, role, callback) => {
-    db.query('UPDATE roles SET name = ?, description = ? WHERE id = ?', [role.name, role.description, id], callback);
+  async update(id, role) {
+    await db.query('UPDATE roles SET ? WHERE id = ?', [role, id]);
   },
 
-  delete: (id, callback) => {
-    db.query('DELETE FROM roles WHERE id = ?', [id], callback);
+  async delete(id) {
+    await db.query('DELETE FROM roles WHERE id = ?', [id]);
   }
 };
 

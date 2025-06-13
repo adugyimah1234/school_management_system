@@ -19,7 +19,7 @@ async function getFinancialSummary(req, res) {
   try {
     const { startDate, endDate } = req.query;
 
-    const [rows] = await db.promise().query(
+    const [rows] = await db.query(
       `SELECT method, SUM(amount) AS total
        FROM transactions
        WHERE DATE(created_at) BETWEEN ? AND ?
@@ -36,7 +36,7 @@ async function getFinancialSummary(req, res) {
 
 async function getPaymentBreakdownByMethod(req, res) {
   try {
-    const [rows] = await db.promise().query('SELECT * FROM payment_breakdown_by_method');
+    const [rows] = await db.query('SELECT * FROM payment_breakdown_by_method');
     res.json({ methods: rows });
   } catch (err) {
     console.error('Breakdown error:', err);
@@ -47,7 +47,7 @@ async function getPaymentBreakdownByMethod(req, res) {
 // This route handles fetching payment request status summaries.  
 async function getPaymentRequestStatusSummary(req, res) {
   try {
-    const [rows] = await db.promise().query('SELECT * FROM payment_request_status_summary');
+    const [rows] = await db.query('SELECT * FROM payment_request_status_summary');
     res.json({ statusSummary: rows });
   } catch (err) {
     console.error('Status summary error:', err);

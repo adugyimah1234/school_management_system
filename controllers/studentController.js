@@ -1,34 +1,50 @@
 const Student = require('../models/studentModel');
-const db = require('../config/db'); // your mysql db connection
 
-exports.getAllStudents = (req, res) => {
-  Student.getAll((err, result) => {
-    if (err) return res.status(500).json(err);
-    res.json(result);
-  });
+// ✅ Get all students
+exports.getAllStudents = async (req, res) => {
+  try {
+    const students = await Student.getAll();
+    res.json(students);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
 
-exports.getStudent = (req, res) => {
+// ✅ Get student by ID
+exports.getStudent = async (req, res) => {
   const { id } = req.params;
-  Student.getById(id, (err, result) => {
-    if (err) return res.status(500).json(err);
-    if (result.length === 0) return res.status(404).json({ message: "Student not found" });
-    res.json(result[0]);
-  });
+
+  try {
+    const student = await Student.getById(id);
+    if (!student || student.length === 0) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    res.json(student[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
 
-exports.createStudent = (req, res) => {
+// ✅ Create a new student
+exports.createStudent = async (req, res) => {
   const studentData = req.body;
-  Student.create(studentData, (err, result) => {
-    if (err) return res.status(500).json(err);
+
+  try {
+    const result = await Student.create(studentData);
     res.status(201).json({ id: result.insertId, ...studentData });
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
 
-exports.deleteStudent = (req, res) => {
+// ✅ Delete student by ID
+exports.deleteStudent = async (req, res) => {
   const { id } = req.params;
-  Student.delete(id, (err) => {
-    if (err) return res.status(500).json(err);
-    res.json({ message: "Student deleted" });
-  });
+
+  try {
+    await Student.delete(id);
+    res.json({ message: 'Student deleted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };

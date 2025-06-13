@@ -1,8 +1,4 @@
 const db = require('../config/db');
-const { promisify } = require('util');
-
-// Convert db.query to support promises
-const queryAsync = promisify(db.query).bind(db);
 
 // Valid fee types
 const FEE_TYPES = ['registration', 'admission', 'tuition', 'exam', 'other'];
@@ -563,7 +559,7 @@ const Fee = {
       GROUP BY f.id
     `;
     
-    const [results] = await queryAsync(query, [studentId, feeId]);
+    const [results] = await db.query(query, [studentId, feeId]);
     
     if (results.length === 0) {
       throw new Error('Fee not found');
@@ -619,7 +615,7 @@ const Fee = {
       GROUP BY f.id
     `;
     
-    const [results] = await queryAsync(query, [studentId, feeId]);
+    const [results] = await db.query(query, [studentId, feeId]);
     
     if (results.length === 0) {
       throw new Error('Fee not found');

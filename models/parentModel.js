@@ -1,11 +1,24 @@
 const db = require('../config/db');
 
 const Parent = {
-  create: (data, callback) => {
-    db.query('INSERT INTO parents SET ?', data, callback);
+  /**
+   * Create a parent record
+   * @param {Object} data - Parent info
+   * @returns {Promise<Object>} - Insert result
+   */
+  async create(data) {
+    const [result] = await db.query('INSERT INTO parents SET ?', [data]);
+    return result;
   },
-  getByStudentId: (studentId, callback) => {
-    db.query('SELECT * FROM parents WHERE student_id = ?', [studentId], callback);
+
+  /**
+   * Get parent info by student ID
+   * @param {number} studentId
+   * @returns {Promise<Object[]>}
+   */
+  async getByStudentId(studentId) {
+    const [rows] = await db.query('SELECT * FROM parents WHERE student_id = ?', [studentId]);
+    return rows;
   }
 };
 

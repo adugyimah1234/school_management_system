@@ -68,7 +68,7 @@ exports.getAllPayments = async (req, res) => {
     query += ' ORDER BY p.payment_date DESC';
     
     // Execute query
-    const [payments] = await db.promise().query(query, queryParams);
+    const [payments] = await db.query(query, queryParams);
     res.json(payments);
   } catch (err) {
     console.error('Error fetching payments:', err);
@@ -91,7 +91,7 @@ exports.getPayment = async (req, res) => {
     }
     
     // Query database for payment with details
-    const [result] = await db.promise().query(
+    const [result] = await db.query(
       `SELECT p.*, 
              s.first_name, s.middle_name, s.last_name,
              CONCAT(s.first_name, ' ', COALESCE(s.middle_name, ''), ' ', s.last_name) as student_name,
@@ -142,7 +142,7 @@ exports.createPayment = async (req, res) => {
     }
     
     // Check if student exists
-    const [studentExists] = await db.promise().query(
+    const [studentExists] = await db.query(
       'SELECT id FROM students WHERE id = ?',
       [student_id]
     );
@@ -152,7 +152,7 @@ exports.createPayment = async (req, res) => {
     }
     
     // Check if fee exists
-    const [feeExists] = await db.promise().query(
+    const [feeExists] = await db.query(
       'SELECT id, amount FROM fees WHERE id = ?',
       [fee_id]
     );
@@ -167,7 +167,7 @@ exports.createPayment = async (req, res) => {
     }
     
     // Check if this would exceed the total fee amount
-    const [totalPaid] = await db.promise().query(
+    const [totalPaid] = await db.query(
       'SELECT SUM(amount_paid) as total FROM payments WHERE student_id = ? AND fee_id = ?',
       [student_id, fee_id]
     );
@@ -190,7 +190,7 @@ exports.createPayment = async (req, res) => {
     const recorded_by = req.user ? req.user.id : null;
     
     // Insert payment record
-    const [result] = await db.promise().query(
+    const [result] = await db.query(
       `INSERT INTO payments 
        (student_id, fee_id, amount_paid, payment_date, installment_number, recorded_by, school_id)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -206,7 +206,7 @@ exports.createPayment = async (req, res) => {
     );
     
     // Get the created payment with details
-    const [payment] = await db.promise().query(
+    const [payment] = await db.query(
       `SELECT p.*, 
              s.first_name, s.middle_name, s.last_name,
              CONCAT(s.first_name, ' ', COALESCE(s.middle_name, ''), ' ', s.last_name) as student_name,
@@ -221,7 +221,7 @@ exports.createPayment = async (req, res) => {
     // Check if fee is fully paid and generate receipt if needed
     if (newTotal >= feeExists[0].amount) {
       // Generate a receipt automatically for fully paid fees
-      await db.promise().query(
+      await db.query(
         `INSERT INTO receipts
          (student_id, payment_id, receipt_type, amount, issued_by, date_issued, class_id, school_id)
          VALUES (?, ?, (SELECT fee_type FROM fees WHERE id = ?), ?, ?, ?, 
@@ -265,7 +265,7 @@ exports.getStudentPaymentHistory = async (req, res) => {
     }
     
     // Check if student exists
-    const [student] = await db.promise().query(
+    const [student] = await db.query(
       'SELECT id FROM students WHERE id = ?',
       [studentId]
     );
@@ -275,7 +275,7 @@ exports.getStudentPaymentHistory = async (req, res) => {
     }
     
     // Get all payments for this student
-    const [payments] = await db.promise().query(
+    const [payments] = await db.query(
       `SELECT p.*, 
              f.fee_type, f.amount as fee_amount, f.description as fee_description,
              CONCAT(u.full_name) as recorded_by_name,
@@ -291,7 +291,7 @@ exports.getStudentPaymentHistory = async (req, res) => {
     );
     
     // Get fee payment summary
-    const [feeSummary] = await db.promise().query(
+    const [feeSummary] = await db.query(
       `SELECT f.id as fee_id, f.fee_type, f.amount as total_amount, f.description,
               COALESCE(SUM(p.amount_paid), 0) as amount_paid,
               f.amount - COALESCE(SUM(p.amount_paid), 0) as remaining_amount,

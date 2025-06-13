@@ -7,7 +7,7 @@ const db = require('../config/db'); // Database connection
  */
 exports.getFee = async (req, res) => {
   try {
-    const [fees] = await db.promise().query(
+    const [fees] = await db.query(
       'SELECT f.*, c.name as category_name, ay.year as academic_year FROM fees f ' +
       'LEFT JOIN categories c ON f.category_id = c.id ' +
       'LEFT JOIN academic_years ay ON f.academic_year_id = ay.id'
@@ -59,7 +59,7 @@ exports.getAllFees = async (req, res) => {
     query += ' ORDER BY c.name, cl.grade_level';
     
     // Execute query
-    const [fees] = await db.promise().query(query, queryParams);
+    const [fees] = await db.query(query, queryParams);
     res.json(fees);
   } catch (err) {
     console.error('Error fetching fees:', err);
@@ -100,7 +100,7 @@ exports.createFee = async (req, res) => {
     }
     
     // Check if fee structure already exists
-    const [existing] = await db.promise().query(
+    const [existing] = await db.query(
       'SELECT id FROM fees WHERE category_id = ? AND class_id = ? AND fee_type = ?',
       [category_id, class_id, fee_type]
     );
@@ -112,7 +112,7 @@ exports.createFee = async (req, res) => {
     }
     
     // Insert new fee structure
-    const [result] = await db.promise().query(
+    const [result] = await db.query(
       `INSERT INTO fees 
        (category_id, class_id, fee_type, amount, description, effective_date, school_id)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -128,7 +128,7 @@ exports.createFee = async (req, res) => {
     );
     
     // Fetch the created fee with details
-    const [createdFee] = await db.promise().query(
+    const [createdFee] = await db.query(
       `SELECT f.*, c.name as category_name, cl.name as class_name, s.name as school_name
        FROM fees f
        JOIN categories c ON f.category_id = c.id
@@ -164,7 +164,7 @@ exports.updateFee = async (req, res) => {
   }
 
   try {
-    const [result] = await db.promise().query(
+    const [result] = await db.query(
       'UPDATE fees SET amount = ?, category_id = ?, academic_year_id = ?, description = ? WHERE id = ?',
       [amount, category_id, academic_year_id, description, id]
     );
@@ -188,7 +188,7 @@ exports.deleteFee = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [result] = await db.promise().query('DELETE FROM fees WHERE id = ?', [id]);
+    const [result] = await db.query('DELETE FROM fees WHERE id = ?', [id]);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Fee not found' });
@@ -209,7 +209,7 @@ exports.getOutstandingFees = async (req, res) => {
   const { studentId } = req.params;
 
   try {
-    const [fees] = await db.promise().query(
+    const [fees] = await db.query(
       `SELECT f.*, c.name as category_name, ay.year as academic_year,
        (f.amount - COALESCE(SUM(p.amount), 0)) as outstanding_amount
        FROM fees f

@@ -1,21 +1,14 @@
 const db = require('../config/db');
 
-/**
- * User model for interacting with the users table in the database
- */
 class User {
   /**
    * Find a user by their ID
    * @param {number} id - The user ID to find
-   * @returns {Promise<Object|null>} The user object or null if not found
+   * @returns {Promise<Object|null>}
    */
   static async findById(id) {
     try {
-      const [rows] = await db.promise().query(
-        'SELECT * FROM users WHERE id = ?',
-        [id]
-      );
-      
+      const [rows] = await db.query('SELECT * FROM users WHERE id = ?', [id]);
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
       console.error('Error finding user by ID:', error);
@@ -25,16 +18,12 @@ class User {
 
   /**
    * Find a user by their email
-   * @param {string} email - The user email to find
-   * @returns {Promise<Object|null>} The user object or null if not found
+   * @param {string} email
+   * @returns {Promise<Object|null>}
    */
   static async findByEmail(email) {
     try {
-      const [rows] = await db.promise().query(
-        'SELECT * FROM users WHERE email = ?',
-        [email]
-      );
-      
+      const [rows] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
       console.error('Error finding user by email:', error);
@@ -44,16 +33,12 @@ class User {
 
   /**
    * Create a new user
-   * @param {Object} userData - The user data to insert
-   * @returns {Promise<Object>} The result of the insert operation
+   * @param {Object} userData
+   * @returns {Promise<Object>}
    */
   static async create(userData) {
     try {
-      const [result] = await db.promise().query(
-        'INSERT INTO users SET ?',
-        [userData]
-      );
-      
+      const [result] = await db.query('INSERT INTO users SET ?', [userData]);
       return { id: result.insertId, ...userData };
     } catch (error) {
       console.error('Error creating user:', error);
@@ -63,17 +48,13 @@ class User {
 
   /**
    * Update a user by their ID
-   * @param {number} id - The user ID to update
-   * @param {Object} userData - The user data to update
-   * @returns {Promise<Object>} The result of the update operation
+   * @param {number} id
+   * @param {Object} userData
+   * @returns {Promise<Object>}
    */
   static async update(id, userData) {
     try {
-      await db.promise().query(
-        'UPDATE users SET ? WHERE id = ?',
-        [userData, id]
-      );
-      
+      await db.query('UPDATE users SET ? WHERE id = ?', [userData, id]);
       return { id, ...userData };
     } catch (error) {
       console.error('Error updating user:', error);
@@ -83,4 +64,3 @@ class User {
 }
 
 module.exports = User;
-

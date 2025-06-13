@@ -1,34 +1,27 @@
-const db = require('../config/db'); // Your MySQL connection file
+const db = require('../config/db');
 
 const Exam = {
-  getAll: (callback) => {
-    db.query('SELECT * FROM exams', callback);
+  async getAll() {
+    const [rows] = await db.query('SELECT * FROM exams');
+    return rows;
   },
 
-  getById: (id, callback) => {
-    db.query('SELECT * FROM exams WHERE id = ?', [id], callback);
+  async getById(id) {
+    const [rows] = await db.query('SELECT * FROM exams WHERE id = ?', [id]);
+    return rows;
   },
 
-  create: (data, callback) => {
-    const { class_id, category_id, name, date, venue } = data;
-    db.query(
-      'INSERT INTO exams (class_id, category_id, name, date, venue) VALUES (?, ?, ?, ?, ?)',
-      [class_id, category_id, name, date, venue],
-      callback
-    );
+  async create(examData) {
+    const [result] = await db.query('INSERT INTO exams SET ?', [examData]);
+    return result;
   },
 
-  update: (id, data, callback) => {
-    const { class_id, category_id, name, date, venue } = data;
-    db.query(
-      'UPDATE exams SET class_id = ?, category_id = ?, name = ?, date = ?, venue = ? WHERE id = ?',
-      [class_id, category_id, name, date, venue, id],
-      callback
-    );
+  async update(id, examData) {
+    await db.query('UPDATE exams SET ? WHERE id = ?', [examData, id]);
   },
 
-  delete: (id, callback) => {
-    db.query('DELETE FROM exams WHERE id = ?', [id], callback);
+  async delete(id) {
+    await db.query('DELETE FROM exams WHERE id = ?', [id]);
   }
 };
 

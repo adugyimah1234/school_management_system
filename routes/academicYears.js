@@ -15,7 +15,7 @@ const isAdmin = (req, res, next) => {
 // Get all academic years - accessible to any authenticated user
 router.get('/', protect, async (req, res) => {
   try {
-    const [results] = await db.promise().query(
+    const [results] = await db.query(
       'SELECT * FROM academic_years ORDER BY start_date DESC'
     );
     res.json(results);
@@ -30,7 +30,7 @@ router.get('/:id', protect, async (req, res) => {
   const { id } = req.params;
   
   try {
-    const [results] = await db.promise().query(
+    const [results] = await db.query(
       'SELECT * FROM academic_years WHERE id = ?', 
       [id]
     );
@@ -76,7 +76,7 @@ router.post('/', protect, isAdmin, async (req, res) => {
   try {
     // If is_active is true, set all other academic years to inactive
     if (is_active) {
-      await db.promise().query(
+      await db.query(
         'UPDATE academic_years SET is_active = false WHERE is_active = true'
       );
     }
@@ -85,7 +85,7 @@ router.post('/', protect, isAdmin, async (req, res) => {
     const activeStatus = is_active !== undefined ? is_active : false;
     
     // Insert new academic year
-    const [result] = await db.promise().query(
+    const [result] = await db.query(
       'INSERT INTO academic_years (year, start_date, end_date, is_active) VALUES (?, ?, ?, ?)',
       [year, start_date, end_date, activeStatus]
     );
@@ -130,7 +130,7 @@ router.put('/:id', protect, isAdmin, async (req, res) => {
   
   try {
     // Check if academic year exists
-    const [existingYear] = await db.promise().query(
+    const [existingYear] = await db.query(
       'SELECT * FROM academic_years WHERE id = ?',
       [id]
     );
@@ -141,14 +141,14 @@ router.put('/:id', protect, isAdmin, async (req, res) => {
     
     // If setting this year to active, set all others to inactive
     if (is_active) {
-      await db.promise().query(
+      await db.query(
         'UPDATE academic_years SET is_active = false WHERE id != ?',
         [id]
       );
     }
     
     // Update the academic year
-    const [result] = await db.promise().query(
+    const [result] = await db.query(
       'UPDATE academic_years SET year = ?, start_date = ?, end_date = ?, is_active = ? WHERE id = ?',
       [year, start_date, end_date, is_active !== undefined ? is_active : false, id]
     );
@@ -169,7 +169,7 @@ router.delete('/:id', protect, isAdmin, async (req, res) => {
   
   try {
     // Check if academic year exists
-    const [existingYear] = await db.promise().query(
+    const [existingYear] = await db.query(
       'SELECT * FROM academic_years WHERE id = ?',
       [id]
     );
@@ -179,7 +179,7 @@ router.delete('/:id', protect, isAdmin, async (req, res) => {
     }
     
     // Check if academic year is referenced by registrations
-    const [registrations] = await db.promise().query(
+    const [registrations] = await db.query(
       'SELECT COUNT(*) as count FROM registrations WHERE academic_year_id = ?',
       [id]
     );
@@ -191,7 +191,7 @@ router.delete('/:id', protect, isAdmin, async (req, res) => {
     }
     
     // Delete the academic year
-    await db.promise().query(
+    await db.query(
       'DELETE FROM academic_years WHERE id = ?',
       [id]
     );

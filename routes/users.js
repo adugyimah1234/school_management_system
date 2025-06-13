@@ -30,7 +30,7 @@ router.post('/', async (req, res) => {
 
   try {
     // Check if user already exists
-    const [existingUser] = await db.promise().query(
+    const [existingUser] = await db.query(
       'SELECT * FROM users WHERE email = ? OR full_name = ?', 
       [email, full_name]
     );
@@ -46,7 +46,7 @@ router.post('/', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     // Fixed INSERT query - removed extra parameter placeholder
-    const [result] = await db.promise().query(
+    const [result] = await db.query(
       'INSERT INTO users (password, email, full_name, role_id, school_id) VALUES (?, ?, ?, ?, ?)',
       [hashedPassword, email, full_name, role_id, school_id || null]
     );

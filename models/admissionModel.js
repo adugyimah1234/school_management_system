@@ -1,11 +1,24 @@
 const db = require('../config/db');
 
 const Admission = {
-  create: (data, callback) => {
-    db.query('INSERT INTO admissions SET ?', data, callback);
+  /**
+   * Create a new admission record
+   * @param {Object} data - Admission data
+   * @returns {Promise<Object>} - Insert result
+   */
+  async create(data) {
+    const [result] = await db.query('INSERT INTO admissions SET ?', [data]);
+    return result;
   },
-  getByStudentId: (studentId, callback) => {
-    db.query('SELECT * FROM admissions WHERE student_id = ?', [studentId], callback);
+
+  /**
+   * Get admission record by student ID
+   * @param {number} studentId
+   * @returns {Promise<Object[]>}
+   */
+  async getByStudentId(studentId) {
+    const [rows] = await db.query('SELECT * FROM admissions WHERE student_id = ?', [studentId]);
+    return rows;
   }
 };
 

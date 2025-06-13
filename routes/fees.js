@@ -28,7 +28,7 @@ router.post('/', protect, async (req, res) => {
   }
 
   try {
-    const [result] = await db.promise().query(
+    const [result] = await db.query(
       'INSERT INTO fees (amount, category_id, description, academic_year_id) VALUES (?, ?, ?, ?)',
       [amount, category_id, description, academic_year_id]
     );

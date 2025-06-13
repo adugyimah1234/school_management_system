@@ -50,7 +50,7 @@ const canManageSectionAttendance = async (req, res, next) => {
   
   try {
     // Check if teacher is assigned to this section
-    const [teacherAssigned] = await db.promise().query(
+    const [teacherAssigned] = await db.query(
       'SELECT id FROM sections WHERE id = ? AND teacher_id = ?',
       [sectionId, req.user.id]
     );
@@ -60,7 +60,7 @@ const canManageSectionAttendance = async (req, res, next) => {
     }
     
     // Check if teacher teaches any subject to this section
-    const [teachesSubject] = await db.promise().query(
+    const [teachesSubject] = await db.query(
       `SELECT 1 FROM teacher_subjects ts
        JOIN sections s ON s.id = ?
        JOIN classes c ON s.class_id = c.id
@@ -97,7 +97,7 @@ const canViewStudentAttendance = async (req, res, next) => {
   
   try {
     // Get student ID from enrollment
-    const [enrollment] = await db.promise().query(
+    const [enrollment] = await db.query(
       `SELECT se.student_id, se.section_id, s.teacher_id
        FROM student_enrollments se
        JOIN sections s ON se.section_id = s.id
@@ -120,7 +120,7 @@ const canViewStudentAttendance = async (req, res, next) => {
       }
       
       // Check if teacher teaches any subject to this section
-      const [teachesSubject] = await db.promise().query(
+      const [teachesSubject] = await db.query(
         `SELECT 1 FROM teacher_subjects ts
          JOIN sections s ON s.id = ?
          JOIN classes c ON s.class_id = c.id
@@ -151,7 +151,7 @@ const canViewStudentAttendance = async (req, res, next) => {
     
     // Parent check - can only view their children's attendance
     if (req.user.role === 'parent') {
-      const [isParent] = await db.promise().query(
+      const [isParent] = await db.query(
         'SELECT 1 FROM guardian_students WHERE guardian_id = ? AND student_id = ? LIMIT 1',
         [req.user.id, studentId]
       );
@@ -203,7 +203,7 @@ router.post('/:sectionId/attendance', protect, canManageSectionAttendance, async
   
   try {
     // Verify section exists
-    const [sectionExists] = await db.promise().query(
+    const [sectionExists] = await db.query(
       'SELECT id, name FROM sections WHERE id = ?',
       [sectionId]
     );
@@ -213,7 +213,7 @@ router.post('/:sectionId/attendance', protect, canManageSectionAttendance, async
     }
     
     // Get students enrolled in this section
-    const [enrollments] = await db.promise().query(
+    const [enrollments] = await db.query(
       `SELECT se.id, se.student_id, u.full_name
        FROM student_enrollments se
        JOIN users u ON se.student_id = u.id
@@ -268,11 +268,11 @@ router.post('/:sectionId/attendance', protect, canManageSectionAttendance, async
     }
     
     // Start transaction
-    await db.promise().query('START TRANSACTION');
+    await db.query('START TRANSACTION');
     
     try {
       // Check for existing attendance records for this date and section
-      const [existingRecords] = await db.promise().query(
+      const [existingRecords] = await db.query(
         `SELECT sa.id, sa.enrollment_id
          FROM student_attendance sa
          JOIN student_enrollments se ON sa.enrollment_id = se.id
@@ -312,7 +312,7 @@ router.post('/:sectionId/attendance', protect, canManageSectionAttendance, async
       
       // Update existing records
       for (const record of recordsToUpdate) {
-        await db.promise().query(
+        await db.query(
           `UPDATE student_attendance 
            SET status = ?, reason = ?, last_modified = ?, modified_by = ?
            WHERE id = ?`,
@@ -322,7 +322,7 @@ router.post('/:sectionId/attendance', protect, canManageSectionAttendance, async
       
       // Insert new records
       if (recordsToInsert.length > 0) {
-        await db.promise().query(
+        await db.query(
           `INSERT INTO student_attendance 
            (enrollment_id, date, status, reason, recorded_by)
            VALUES ?`,
@@ -330,7 +330,7 @@ router.post('/:sectionId/attendance', protect, canManageSectionAttendance, async
         );
       }
       
-      await db.promise().query('COMMIT');
+      await db.query('COMMIT');
       
       res.status(201).json({
         message: 'Attendance recorded successfully',
@@ -341,7 +341,7 @@ router.post('/:sectionId/attendance', protect, canManageSectionAttendance, async
         total_records: validRecords.length
       });
     } catch (err) {
-      await db.promise().query('ROLLBACK');
+      await db.query('ROLLBACK');
       console.error('Error recording attendance:', err);
       res.status(500).json({ error: err.message });
     }
@@ -375,7 +375,7 @@ router.get('/:sectionId/attendance', protect, canManageSectionAttendance, async 
   
   try {
     // Verify section exists
-    const [sectionExists] = await db.promise().query(
+    const [sectionExists] = await db.query(
       `SELECT s.id, s.name, c.name as class_name, c.grade_level, ay.name as academic_year
        FROM sections s
        JOIN classes c ON s.class_id = c.id
@@ -389,7 +389,7 @@ router.get('/:sectionId/attendance', protect, canManageSectionAttendance, async 
     }
     
     // Get active students in the section
-    const [students] = await db.promise().query(
+    const [students] = await db.query(
       `SELECT se.id as enrollment_id, se.student_id, se.roll_number, u.full_name
        FROM student_enrollments se
        JOIN users u ON se.student_id = u.id
@@ -440,7 +440,7 @@ router.get('/:sectionId/attendance', protect, canManageSectionAttendance, async 
     attendanceQuery += ' ORDER BY sa.date DESC, se.roll_number ASC, sa.enrollment_id ASC';
     
     // Get attendance records
-    const [attendanceRecords] = await db.promise().query(attendanceQuery, queryParams);
+    const [attendanceRecords] = await db.query(attendanceQuery, queryParams);
     
     // Organize records by date and student
     const recordsByDate = {};
@@ -578,7 +578,7 @@ router.get('/:enrollmentId/attendance', protect, canViewStudentAttendance, async
   
   try {
     // Get enrollment details
-    const [enrollment] = await db.promise().query(
+    const [enrollment] = await db.query(
       `SELECT se.id, se.student_id, se.roll_number, se.section_id,
               u.full_name as student_name,
               s.name as section_name, c.name as class_name,
@@ -631,7 +631,7 @@ router.get('/:enrollmentId/attendance', protect, canViewStudentAttendance, async
     query += ' ORDER BY sa.date DESC';
     
     // Get attendance records
-    const [records] = await db.promise().query(query, queryParams);
+    const [records] = await db.query(query, queryParams);
     
     // Calculate attendance statistics
     const stats = {
@@ -702,7 +702,7 @@ router.put('/:sectionId/attendance/:date', protect, canManageSectionAttendance, 
   
   try {
     // Verify section exists
-    const [sectionExists] = await db.promise().query(
+    const [sectionExists] = await db.query(
       'SELECT id, name FROM sections WHERE id = ?',
       [sectionId]
     );
@@ -712,7 +712,7 @@ router.put('/:sectionId/attendance/:date', protect, canManageSectionAttendance, 
     }
     
     // Get enrollments for this section
-    const [enrollments] = await db.promise().query(
+    const [enrollments] = await db.query(
       `SELECT se.id, se.student_id, u.full_name
        FROM student_enrollments se
        JOIN users u ON se.student_id = u.id
@@ -767,11 +767,11 @@ router.put('/:sectionId/attendance/:date', protect, canManageSectionAttendance, 
     }
     
     // Start transaction
-    await db.promise().query('START TRANSACTION');
+    await db.query('START TRANSACTION');
     
     try {
       // Get existing attendance records for this date
-      const [existingRecords] = await db.promise().query(
+      const [existingRecords] = await db.query(
         `SELECT id, enrollment_id 
          FROM student_attendance 
          WHERE DATE(date) = ? AND enrollment_id IN (?)`,
@@ -812,7 +812,7 @@ router.put('/:sectionId/attendance/:date', protect, canManageSectionAttendance, 
       
       // Execute updates
       for (const update of updates) {
-        await db.promise().query(
+        await db.query(
           `UPDATE student_attendance
            SET status = ?, reason = ?, last_modified = ?, modified_by = ?
            WHERE id = ?`,
@@ -822,7 +822,7 @@ router.put('/:sectionId/attendance/:date', protect, canManageSectionAttendance, 
       
       // Execute inserts
       if (inserts.length > 0) {
-        await db.promise().query(
+        await db.query(
           `INSERT INTO student_attendance
            (enrollment_id, date, status, reason, recorded_by)
            VALUES ?`,
@@ -830,7 +830,7 @@ router.put('/:sectionId/attendance/:date', protect, canManageSectionAttendance, 
         );
       }
       
-      await db.promise().query('COMMIT');
+      await db.query('COMMIT');
       
       res.json({
         message: 'Attendance updated successfully',
@@ -841,7 +841,7 @@ router.put('/:sectionId/attendance/:date', protect, canManageSectionAttendance, 
         total_records: validRecords.length
       });
     } catch (err) {
-      await db.promise().query('ROLLBACK');
+      await db.query('ROLLBACK');
       console.error('Error updating attendance:', err);
       res.status(500).json({ error: err.message });
     }
@@ -861,7 +861,7 @@ router.get('/report/:enrollmentId', protect, canViewStudentAttendance, async (re
   
   try {
     // Get enrollment details
-    const [enrollment] = await db.promise().query(
+    const [enrollment] = await db.query(
       `SELECT se.id, se.student_id, se.roll_number, se.enrollment_date,
               u.full_name as student_name,
               s.name as section_name, s.id as section_id,
@@ -884,7 +884,7 @@ router.get('/report/:enrollmentId', protect, canViewStudentAttendance, async (re
     const studentInfo = enrollment[0];
     
     // Get all attendance records for this enrollment
-    const [attendanceRecords] = await db.promise().query(
+    const [attendanceRecords] = await db.query(
       `SELECT sa.id, sa.date, sa.status, sa.reason, 
               sa.recorded_by, u1.full_name as recorded_by_name,
               sa.modified_by, u2.full_name as modified_by_name, 
@@ -919,7 +919,7 @@ router.get('/report/:enrollmentId', protect, canViewStudentAttendance, async (re
     const academicYearEnd = new Date(studentInfo.academic_year_end);
     
     // Try to get school calendar for more accurate data
-    let [schoolDays] = await db.promise().query(
+    let [schoolDays] = await db.query(
       `SELECT COUNT(*) as total_school_days
        FROM school_calendar
        WHERE academic_year_id = ? AND is_school_day = 1`,

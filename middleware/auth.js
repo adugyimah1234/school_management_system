@@ -104,7 +104,7 @@ const authorize = (...roles) => {
       const userId = req.user.id;
       
       // Get user's role from the database
-      const [userRoleRows] = await db.promise().query(
+      const [userRoleRows] = await db.query(
         'SELECT r.name FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = ?',
         [userId]
       );

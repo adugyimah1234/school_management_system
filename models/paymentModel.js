@@ -172,7 +172,7 @@ const Payment = {
     }
     
     // Start transaction
-    const connection = await db.promise().getConnection();
+    const connection = await db.getConnection();
     await connection.beginTransaction();
     
     try {
@@ -723,7 +723,7 @@ const Payment = {
    */
   generateReceiptAsync: async (paymentId, data = {}) => {
     // Start transaction
-    const connection = await db.promise().getConnection();
+    const connection = await db.getConnection();
     await connection.beginTransaction();
     
     try {
@@ -823,7 +823,7 @@ const Payment = {
    */
   deletePaymentAsync: async (id) => {
     // Start transaction
-    const connection = await db.promise().getConnection();
+    const connection = await db.getConnection();
     await connection.beginTransaction();
     
     try {
@@ -922,7 +922,7 @@ const Payment = {
    */
   updatePaymentAsync: async (id, data) => {
     // Start transaction
-    const connection = await db.promise().getConnection();
+    const connection = await db.getConnection();
     await connection.beginTransaction();
     
     try {

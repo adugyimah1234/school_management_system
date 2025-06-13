@@ -93,10 +93,10 @@ exports.getAllReceipts = async (req, res) => {
     // Build the base query
 let query = `
   SELECT r.*, 
-         COALESCE(
-           CONCAT(s.first_name, ' ', COALESCE(s.middle_name, ''), ' ', s.last_name),
-           CONCAT(reg.first_name, ' ', COALESCE(reg.middle_name, ''), ' ', reg.last_name)
-         ) AS student_name,
+COALESCE(
+  TRIM(CONCAT(s.first_name, ' ', s.middle_name, ' ', s.last_name)),
+  TRIM(CONCAT(reg.first_name, ' ', reg.middle_name, ' ', reg.last_name))
+) AS student_name,
          c.name as class_name,
          CONCAT(u.full_name) as issued_by_name,
          sch.name as school_name,
@@ -154,7 +154,7 @@ let query = `
     query += ' ORDER BY r.date_issued DESC';
     
     // Execute query
-    const [receipts] = await db.promise().query(query, queryParams);
+    const [receipts] = await db.query(query, queryParams);
     res.json(receipts);
   } catch (err) {
     console.error('Error fetching receipts:', err);
@@ -177,14 +177,14 @@ exports.getReceipt = async (req, res) => {
     }
     
     // Query database for receipt with details
-    const [result] = await db.promise().query(
+    const [result] = await db.query(
       `SELECT r.*, 
   s.first_name, s.middle_name, s.last_name,
   reg.first_name AS reg_first_name, reg.middle_name AS reg_middle_name, reg.last_name AS reg_last_name,
-  COALESCE(
-    CONCAT(s.first_name, ' ', COALESCE(s.middle_name, ''), ' ', s.last_name),
-    CONCAT(reg.first_name, ' ', COALESCE(reg.middle_name, ''), ' ', reg.last_name)
-  ) AS student_name,
+COALESCE(
+  TRIM(CONCAT(s.first_name, ' ', s.middle_name, ' ', s.last_name)),
+  TRIM(CONCAT(reg.first_name, ' ', reg.middle_name, ' ', reg.last_name))
+) AS student_name,
   COALESCE(c.name, class_apply.name) AS class_name,
   CONCAT(u.full_name) AS issued_by_name,
   sch.name AS school_name, 
@@ -260,6 +260,7 @@ exports.createReceipt = async (req, res) => {
   try {
     const { 
       registration_id,
+      student_id,
       payment_id, 
       receipt_type, 
       amount, 
@@ -310,7 +311,7 @@ const validReceiptTypes = [
 
     // Verify payment if payment_id is provided
     if (payment_id) {
-      const [paymentExists] = await db.promise().query(
+      const [paymentExists] = await db.query(
         'SELECT id, student_id FROM payments WHERE id = ?',
         [payment_id]
       );
@@ -323,7 +324,7 @@ const validReceiptTypes = [
         return res.status(400).json({ error: 'Payment does not belong to the specified student' });
       }
 
-      const [existingReceipt] = await db.promise().query(
+      const [existingReceipt] = await db.query(
         'SELECT id FROM receipts WHERE payment_id = ?',
         [payment_id]
       );
@@ -339,65 +340,72 @@ const validReceiptTypes = [
     const issued_by = req.user ? req.user.id : null;
 const baseUrl = `${req.protocol}://${req.get('host')}`;
 const DEFAULT_LOGO = `${baseUrl}/assets/logo.png`;
+const [dbName] = await db.query('SELECT DATABASE() AS name');
+console.log('🚨 Connected to DB:', dbName[0].name);
 
 
 let resolvedPaymentId = payment_id;
 
 // Automatically create a payment if not provided
-if (!payment_id && receipt_type === 'tuition') { // or any types you want to auto-create
-  const [paymentResult] = await db.promise().query(
+if (!payment_id && ['tuition', 'furniture', 'levy', 'textBooks', 'exerciseBooks', 'jersey_crest'].includes(receipt_type)) {
+  const [paymentResult] = await db.query(
     `INSERT INTO payments 
-      (registration_id, amount, type, method, description, school_id) 
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [
-      registration_id,
-      amount,
-      receipt_type,
-      'cash', // or derive from req.body if available
-      `Auto-created payment for receipt`,
-      school_id
-    ]
+(student_id, amount_paid, type, method, description, school_id, recorded_by, payment_date)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+[
+  student_id,
+  amount,
+  receipt_type,
+  'cash',
+  `Auto-created payment for ${receipt_type} receipt`,
+  school_id,
+  req.user?.id || null,                   // recorded_by from logged-in user
+  new Date().toISOString().split('T')[0]  // payment_date = today
+]
+
   );
   resolvedPaymentId = paymentResult.insertId;
 }
 
 
 
+
     // Insert receipt
-    const [result] = await db.promise().query(
-      `INSERT INTO receipts 
-       (registration_id, payment_id, receipt_type, amount, issued_by, date_issued, venue, logo_url, exam_date, exam_id, school_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        registration_id || null,
-        resolvedPaymentId || null,
-        receipt_type,
-        amount,
-        issued_by,
-        receiptDate,
-        venue || null,
-        logo_url || DEFAULT_LOGO,
-        exam_date || null,
-        exam_id || null,
-        school_id || null
-      ]
-    );
+const [result] = await db.query(
+  `INSERT INTO receipts 
+   (registration_id, student_id, payment_id, receipt_type, amount, issued_by, date_issued, venue, logo_url, exam_date, exam_id, school_id)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  [
+    registration_id || null,
+    student_id || null,         // ✅ correct student_id
+    resolvedPaymentId || null,  // ✅ correct payment_id
+    receipt_type,
+    amount,
+    issued_by,
+    receiptDate,
+    venue || null,
+    logo_url || DEFAULT_LOGO,
+    exam_date || null,
+    exam_id || null,
+    school_id || null
+  ]
+);
 
     // Fetch created receipt with joined name (from student OR registration)
-    const [receipt] = await db.promise().query(
+    const [receipt] = await db.query(
   `SELECT r.*, 
     CASE 
       WHEN r.payment_id IS NOT NULL THEN 'Paid'
       ELSE 'Issued'
     END AS payment_method,
+    p.amount_paid,
     p.type AS payment_type,
     p.method AS payment_method,
 
-    COALESCE(
-      CONCAT(s.first_name, ' ', COALESCE(s.middle_name, ''), ' ', s.last_name),
-      CONCAT(reg.first_name, ' ', COALESCE(reg.middle_name, ''), ' ', reg.last_name)
-    ) AS student_name,
-
+COALESCE(
+  TRIM(CONCAT(s.first_name, ' ', s.middle_name, ' ', s.last_name)),
+  TRIM(CONCAT(reg.first_name, ' ', reg.middle_name, ' ', reg.last_name))
+) AS student_name,
     c.name AS class_name,
     sch.name AS school_name
        FROM receipts r
@@ -412,7 +420,7 @@ if (!payment_id && receipt_type === 'tuition') { // or any types you want to aut
 
     // (Optional: validate exam_id)
     if (exam_id) {
-      const [examRes] = await db.promise().query(
+      const [examRes] = await db.query(
         `SELECT e.*, c.name as class_name, cat.name as category_name 
          FROM exams e 
          LEFT JOIN classes c ON e.class_id = c.id
@@ -454,14 +462,14 @@ exports.getPrintableReceipt = async (req, res) => {
     const { id } = req.params;
     
     // Get receipt details
-const [result] = await db.promise().query(
+const [result] = await db.query(
   `SELECT r.*, 
      s.first_name, s.middle_name, s.last_name,
      reg.first_name AS reg_first_name, reg.middle_name AS reg_middle_name, reg.last_name AS reg_last_name,
-     COALESCE(
-       CONCAT(s.first_name, ' ', COALESCE(s.middle_name, ''), ' ', s.last_name),
-       CONCAT(reg.first_name, ' ', COALESCE(reg.middle_name, ''), ' ', reg.last_name)
-     ) AS student_name,
+COALESCE(
+  TRIM(CONCAT(s.first_name, ' ', s.middle_name, ' ', s.last_name)),
+  TRIM(CONCAT(reg.first_name, ' ', reg.middle_name, ' ', reg.last_name))
+) AS student_name,
       COALESCE(c.name, class_apply.name) AS class_name,
      CONCAT(u.full_name) AS issued_by_name,
      sch.name AS school_name, 

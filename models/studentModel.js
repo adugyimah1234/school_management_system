@@ -1,17 +1,25 @@
 const db = require('../config/db');
 
 const Student = {
-  getAll: callback => {
-    db.query('SELECT * FROM students', callback);
+  async getAll() {
+    const [rows] = await db.query('SELECT * FROM students');
+    return rows;
   },
-  create: (data, callback) => {
-    db.query('INSERT INTO students SET ?', data, callback);
-  }
-};
 
-exports.findByNameAndDOB = (first_name, last_name, middle_name, dob, callback) => {
-  const query = 'SELECT * FROM students WHERE first_name = ? AND last_name = ? AND middle_name = ? AND dob = ?';
-  db.query(query, [first_name, last_name, middle_name, dob], callback);
+  async getById(id) {
+    const [rows] = await db.query('SELECT * FROM students WHERE id = ?', [id]);
+    return rows;
+  },
+
+  async create(studentData) {
+    const [result] = await db.query('INSERT INTO students SET ?', [studentData]);
+    return result;
+  },
+
+  async delete(id) {
+    const [result] = await db.query('DELETE FROM students WHERE id = ?', [id]);
+    return result;
+  }
 };
 
 module.exports = Student;

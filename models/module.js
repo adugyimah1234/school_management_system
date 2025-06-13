@@ -11,7 +11,7 @@ class ModuleAccess {
    */
   static async getUserModuleAccess(userId) {
     try {
-      const [rows] = await db.promise().query(
+      const [rows] = await db.query(
         'SELECT module_id, has_access FROM user_module_access WHERE user_id = ?',
         [userId]
       );
@@ -40,20 +40,20 @@ class ModuleAccess {
   static async updateModuleAccess(userId, moduleId, hasAccess) {
     try {
       // Check if an access record already exists
-      const [existingRows] = await db.promise().query(
+      const [existingRows] = await db.query(
         'SELECT * FROM user_module_access WHERE user_id = ? AND module_id = ?',
         [userId, moduleId]
       );
       
       if (existingRows.length > 0) {
         // Update existing record
-        await db.promise().query(
+        await db.query(
           'UPDATE user_module_access SET has_access = ? WHERE user_id = ? AND module_id = ?',
           [hasAccess, userId, moduleId]
         );
       } else {
         // Insert new record
-        await db.promise().query(
+        await db.query(
           'INSERT INTO user_module_access (user_id, module_id, has_access) VALUES (?, ?, ?)',
           [userId, moduleId, hasAccess]
         );
@@ -73,7 +73,7 @@ class ModuleAccess {
    */
   static async getUserAccessibleModules(userId) {
     try {
-      const [rows] = await db.promise().query(
+      const [rows] = await db.query(
         'SELECT module_id FROM user_module_access WHERE user_id = ? AND has_access = TRUE',
         [userId]
       );

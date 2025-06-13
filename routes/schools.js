@@ -19,7 +19,7 @@ const isAdmin = (req, res, next) => {
  */
 router.get('/', protect, async (req, res) => {
   try {
-    const [schools] = await db.promise().query(
+    const [schools] = await db.query(
       'SELECT id, name, address, phone_number, email FROM schools ORDER BY name ASC'
     );
     res.json(schools);
@@ -38,7 +38,7 @@ router.get('/:id', protect, async (req, res) => {
   const { id } = req.params;
   
   try {
-    const [schools] = await db.promise().query(
+    const [schools] = await db.query(
       'SELECT id, name, address, phone_number, email FROM schools WHERE id = ?',
       [id]
     );
@@ -67,7 +67,7 @@ router.post('/', protect, isAdmin, async (req, res) => {
   }
   
   try {
-    const [result] = await db.promise().query(
+    const [result] = await db.query(
       'INSERT INTO schools (name, address, phone_number, email) VALUES (?, ?, ?, ?)',
       [name, address, phone_number, email]
     );
@@ -96,7 +96,7 @@ router.put('/:id', protect, isAdmin, async (req, res) => {
   }
   
   try {
-    const [result] = await db.promise().query(
+    const [result] = await db.query(
       'UPDATE schools SET name = ?, address = ?, phone_number = ?, email = ? WHERE id = ?',
       [name, address, phone_number, email, id]
     );
@@ -125,7 +125,7 @@ router.delete('/:id', protect, isAdmin, async (req, res) => {
   
   try {
     // Check if school has any classes
-    const [classes] = await db.promise().query(
+    const [classes] = await db.query(
       'SELECT COUNT(*) as count FROM classes WHERE school_id = ?',
       [id]
     );
@@ -136,7 +136,7 @@ router.delete('/:id', protect, isAdmin, async (req, res) => {
       });
     }
     
-    const [result] = await db.promise().query(
+    const [result] = await db.query(
       'DELETE FROM schools WHERE id = ?',
       [id]
     );

@@ -52,7 +52,7 @@ router.get('/', protect, async (req, res) => {
     
     query += ' ORDER BY c.level ASC, c.name ASC';
     
-    const [classes] = await db.promise().query(query, queryParams);
+    const [classes] = await db.query(query, queryParams);
     
     res.json(classes);
   } catch (err) {
@@ -71,7 +71,7 @@ router.get('/:id', protect, async (req, res) => {
   
   try {
     // Get class details
-    const [classResults] = await db.promise().query(
+    const [classResults] = await db.query(
       `SELECT c.*, s.name as school_name 
        FROM classes c
        JOIN schools s ON c.school_id = s.id
@@ -86,7 +86,7 @@ router.get('/:id', protect, async (req, res) => {
     const classData = classResults[0];
     
     // Get exams for this class
-    const [exams] = await db.promise().query(
+    const [exams] = await db.query(
       `SELECT e.*, c.name as category_name
        FROM exams e
        LEFT JOIN categories c ON e.category_id = c.id
@@ -130,7 +130,7 @@ router.post('/', protect, isAdmin, async (req, res) => {
   
   try {
     // Verify school exists
-    const [schoolExists] = await db.promise().query(
+    const [schoolExists] = await db.query(
       'SELECT id FROM schools WHERE id = ?',
       [school_id]
     );
@@ -140,7 +140,7 @@ router.post('/', protect, isAdmin, async (req, res) => {
     }
     
     // Check for duplicate class name in the same school
-    const [existingClass] = await db.promise().query(
+    const [existingClass] = await db.query(
       'SELECT id FROM classes WHERE name = ? AND school_id = ?',
       [name, school_id]
     );
@@ -152,7 +152,7 @@ router.post('/', protect, isAdmin, async (req, res) => {
     }
     
     // Create new class
-    const [result] = await db.promise().query(
+    const [result] = await db.query(
       'INSERT INTO classes (name, level, slots, school_id) VALUES (?, ?, ?, ?)',
       [name, level, slots, school_id]
     );
@@ -192,7 +192,7 @@ router.put('/:id', protect, isAdmin, async (req, res) => {
   
   try {
     // Verify class exists
-    const [classExists] = await db.promise().query(
+    const [classExists] = await db.query(
       'SELECT id FROM classes WHERE id = ?',
       [id]
     );
@@ -202,7 +202,7 @@ router.put('/:id', protect, isAdmin, async (req, res) => {
     }
     
     // Verify school exists
-    const [schoolExists] = await db.promise().query(
+    const [schoolExists] = await db.query(
       'SELECT id FROM schools WHERE id = ?',
       [school_id]
     );
@@ -212,7 +212,7 @@ router.put('/:id', protect, isAdmin, async (req, res) => {
     }
     
     // Check for duplicate class name in the same school (excluding current class)
-    const [existingClass] = await db.promise().query(
+    const [existingClass] = await db.query(
       'SELECT id FROM classes WHERE name = ? AND school_id = ? AND id != ?',
       [name, school_id, id]
     );
@@ -224,7 +224,7 @@ router.put('/:id', protect, isAdmin, async (req, res) => {
     }
     
     // Update class
-    const [result] = await db.promise().query(
+    const [result] = await db.query(
       'UPDATE classes SET name = ?, level = ?, slots = ?, school_id = ? WHERE id = ?',
       [name, level, slots, school_id, id]
     );
@@ -249,7 +249,7 @@ router.delete('/:id', protect, isAdmin, async (req, res) => {
   
   try {
     // Verify class exists
-    const [classExists] = await db.promise().query(
+    const [classExists] = await db.query(
       'SELECT id FROM classes WHERE id = ?',
       [id]
     );
@@ -259,7 +259,7 @@ router.delete('/:id', protect, isAdmin, async (req, res) => {
     }
     
     // Check if the class has exams
-    const [exams] = await db.promise().query(
+    const [exams] = await db.query(
       'SELECT COUNT(*) as count FROM exams WHERE class_id = ?',
       [id]
     );
@@ -271,7 +271,7 @@ router.delete('/:id', protect, isAdmin, async (req, res) => {
     }
     
     // Check if the class has students
-    const [students] = await db.promise().query(
+    const [students] = await db.query(
       'SELECT COUNT(*) as count FROM students WHERE class_id = ?',
       [id]
     );
@@ -283,7 +283,7 @@ router.delete('/:id', protect, isAdmin, async (req, res) => {
     }
     
     // Delete the class
-    await db.promise().query('DELETE FROM classes WHERE id = ?', [id]);
+    await db.query('DELETE FROM classes WHERE id = ?', [id]);
     
     res.json({ message: 'Class deleted successfully' });
   } catch (err) {
@@ -303,7 +303,7 @@ router.get('/:id/exams', protect, async (req, res) => {
   
   try {
     // Verify class exists
-    const [classExists] = await db.promise().query(
+    const [classExists] = await db.query(
       'SELECT id FROM classes WHERE id = ?',
       [id]
     );
@@ -330,7 +330,7 @@ router.get('/:id/exams', protect, async (req, res) => {
     query += ' ORDER BY e.date ASC';
     
     // Get exams for this class
-    const [exams] = await db.promise().query(query, queryParams);
+    const [exams] = await db.query(query, queryParams);
     
     res.json(exams);
   } catch (err) {
@@ -365,7 +365,7 @@ router.post('/:id/exams', protect, isAdmin, async (req, res) => {
   
   try {
     // Verify class exists
-    const [classExists] = await db.promise().query(
+    const [classExists] = await db.query(
       'SELECT id FROM classes WHERE id = ?',
       [id]
     );
@@ -375,7 +375,7 @@ router.post('/:id/exams', protect, isAdmin, async (req, res) => {
     }
     
     // Verify category exists
-    const [categoryExists] = await db.promise().query(
+    const [categoryExists] = await db.query(
       'SELECT id FROM categories WHERE id = ?',
       [category_id]
     );
@@ -385,7 +385,7 @@ router.post('/:id/exams', protect, isAdmin, async (req, res) => {
     }
     
     // Check for existing exam with same name and date for this class
-    const [existingExam] = await db.promise().query(
+    const [existingExam] = await db.query(
       'SELECT id FROM exams WHERE class_id = ? AND name = ? AND date = ?',
       [id, name, date]
     );
@@ -397,7 +397,7 @@ router.post('/:id/exams', protect, isAdmin, async (req, res) => {
     }
     
     // Create new exam
-    const [result] = await db.promise().query(
+    const [result] = await db.query(
       'INSERT INTO exams (class_id, category_id, name, date, venue) VALUES (?, ?, ?, ?, ?)',
       [id, category_id, name, date, venue]
     );
@@ -438,7 +438,7 @@ router.put('/:id/exams/:examId', protect, isAdmin, async (req, res) => {
   
   try {
     // Verify class exists
-    const [classExists] = await db.promise().query(
+    const [classExists] = await db.query(
       'SELECT id FROM classes WHERE id = ?',
       [id]
     );
@@ -448,7 +448,7 @@ router.put('/:id/exams/:examId', protect, isAdmin, async (req, res) => {
     }
     
     // Verify exam exists and belongs to the class
-    const [examExists] = await db.promise().query(
+    const [examExists] = await db.query(
       'SELECT id FROM exams WHERE id = ? AND class_id = ?',
       [examId, id]
     );
@@ -458,7 +458,7 @@ router.put('/:id/exams/:examId', protect, isAdmin, async (req, res) => {
     }
     
     // Verify category exists
-    const [categoryExists] = await db.promise().query(
+    const [categoryExists] = await db.query(
       'SELECT id FROM categories WHERE id = ?',
       [category_id]
     );
@@ -468,7 +468,7 @@ router.put('/:id/exams/:examId', protect, isAdmin, async (req, res) => {
     }
     
     // Check for existing exam with same name and date for this class (excluding this exam)
-    const [existingExam] = await db.promise().query(
+    const [existingExam] = await db.query(
       'SELECT id FROM exams WHERE class_id = ? AND name = ? AND date = ? AND id != ?',
       [id, name, date, examId]
     );
@@ -480,7 +480,7 @@ router.put('/:id/exams/:examId', protect, isAdmin, async (req, res) => {
     }
     
     // Update exam
-    const [result] = await db.promise().query(
+    const [result] = await db.query(
       'UPDATE exams SET category_id = ?, name = ?, date = ?, venue = ? WHERE id = ?',
       [category_id, name, date, venue, examId]
     );
@@ -509,7 +509,7 @@ router.delete('/:id/exams/:examId', protect, isAdmin, async (req, res) => {
   
   try {
     // Verify exam exists and belongs to the class
-    const [examExists] = await db.promise().query(
+    const [examExists] = await db.query(
       'SELECT id FROM exams WHERE id = ? AND class_id = ?',
       [examId, id]
     );
@@ -519,7 +519,7 @@ router.delete('/:id/exams/:examId', protect, isAdmin, async (req, res) => {
     }
     
     // Delete the exam
-    const [result] = await db.promise().query(
+    const [result] = await db.query(
       'DELETE FROM exams WHERE id = ?',
       [examId]
     );
