@@ -38,25 +38,26 @@ const blacklistToken = (token) => {
 };
 
 // ✅ LOGIN with await
+// ✅ LOGIN with username instead of email
 exports.login = async (req, res) => {
-  const { email, password } = req.body;
+  const { username, password } = req.body; // ⬅️ changed from email
 
   try {
     const [results] = await db.query(`
       SELECT users.*, roles.name AS role 
       FROM users 
       JOIN roles ON users.role_id = roles.id 
-      WHERE users.email = ?
-    `, [email]);
+      WHERE users.username = ?
+    `, [username]);
 
     if (!results.length) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid username or password' });
     }
 
     const user = results[0];
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid username or password' });
     }
 
     const token = generateToken(user);
@@ -71,26 +72,31 @@ exports.login = async (req, res) => {
   }
 };
 
+
 // ✅ REGISTER with await
 exports.register = async (req, res) => {
-  const { full_name, email, password, role, school_id } = req.body;
+  const { full_name, username,  password, role, school_id } = req.body;
 
-  if (!full_name || !email || !password || !role || !school_id) {
-    return res.status(400).json({ message: 'All fields are required' });
-  }
+if (!full_name || !username || !password || !role || !school_id) {
+  return res.status(400).json({ message: 'All fields are required' });
+}
 
   try {
-    const [existing] = await db.query('SELECT id FROM users WHERE email = ?', [email]);
-    if (existing.length > 0) {
-      return res.status(400).json({ message: 'Email already registered' });
-    }
+    const [existing] = await db.query(
+  'SELECT id FROM users WHERE username = ?',
+  [ username]
+);
+
+if (existing.length > 0) {
+  return res.status(400).json({ message: 'Username already registered' });
+}
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     await db.query(`
-      INSERT INTO users (full_name, email, password, role, school_id)
-      VALUES (?, ?, ?, ?, ?)
-    `, [full_name, email, hashedPassword, role, school_id]);
+  INSERT INTO users (full_name, username, password, role, school_id)
+  VALUES (?, ?, ?, ?, ?)
+`, [full_name, username, hashedPassword, role, school_id]);
 
     res.status(201).json({ message: 'User registered successfully' });
   } catch (err) {
@@ -134,7 +140,7 @@ exports.validateToken = async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const [results] = await db.query(
-      'SELECT id, email, role_id FROM users WHERE id = ?',
+      'SELECT id, role_id FROM users WHERE id = ?',
       [decoded.id]
     );
 

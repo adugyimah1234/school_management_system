@@ -80,6 +80,26 @@ router.get("/:id", protect, async (req, res) => {
   }
 });
 
+router.patch('/:id/payment-status', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [result] = await db.promise().query(
+      'UPDATE registrations SET payment_status = ? WHERE id = ?',
+      ['paid', id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Registration not found' });
+    }
+
+    res.status(200).json({ message: 'Payment status updated to paid' });
+  } catch (error) {
+    console.error('Error updating payment_status:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // ✅ Update a registration (admin only)
 router.put("/:id", protect, async (req, res) => {
   if (!isAdmin(req)) {

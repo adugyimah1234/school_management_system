@@ -63,7 +63,6 @@ const academicYearsRouter = require('./routes/academicYears');
 const roleRoutes = require('./routes/role.routes');
 const moduleRoutes = require('./routes/module');
 const tuitionRoutes = require('./routes/tuitionRoutes');
-
 // ✅ Use routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);

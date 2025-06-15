@@ -8,36 +8,37 @@ const bcrypt = require('bcryptjs');
 
 
 // Get all users (consider protecting this as well)
-router.get('/', protect,  (req, res) => {
-  db.query('SELECT * FROM users', (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(results);
-  });
+router.get('/', protect, async  (req, res) => {
+  try {
+   const [results] = await db.query('SELECT * FROM users');
+      res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.get('/:id', protect, userController.getUserById);
 
 // Create new user (protected for admins)
 router.post('/', async (req, res) => {
-  const { password, email, full_name, role_id, school_id } = req.body;
+  const { username, password, full_name, role_id, school_id } = req.body;
 
-  // Validate required fields
-  if (!password || !email || !full_name || !role_id) {
-    return res.status(400).json({ 
-      error: "Please provide all required fields: password, email, full_name, role_id" 
+  if (!username || !password || !full_name || !role_id) {
+    return res.status(400).json({
+      error: "Please provide all required fields: username, password, full_name, role_id"
     });
   }
 
   try {
-    // Check if user already exists
+    // Check if username already exists
     const [existingUser] = await db.query(
-      'SELECT * FROM users WHERE email = ? OR full_name = ?', 
-      [email, full_name]
+      'SELECT * FROM users WHERE username = ?',
+      [ username]
     );
 
     if (existingUser.length > 0) {
-      return res.status(400).json({ 
-        error: 'User with this email or full_name already exists' 
+      return res.status(400).json({
+        error: 'User with this username or username already exists'
       });
     }
 
@@ -45,10 +46,10 @@ router.post('/', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Fixed INSERT query - removed extra parameter placeholder
+    // Insert new user with username
     const [result] = await db.query(
-      'INSERT INTO users (password, email, full_name, role_id, school_id) VALUES (?, ?, ?, ?, ?)',
-      [hashedPassword, email, full_name, role_id, school_id || null]
+      'INSERT INTO users (username, password,  full_name, role_id, school_id) VALUES (?, ?, ?, ?, ?)',
+      [username, hashedPassword, full_name, role_id, school_id || null]
     );
 
     res.status(201).json({
@@ -62,29 +63,88 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update user by ID 
-router.put('/:id', protect, (req, res) => {
+
+// Update user by ID with safe hashing and partial updates
+router.put('/:id', protect, async (req, res) => {
   const { id } = req.params;
-  const { full_name, password, role_id } = req.body;
-  db.query(
-  'UPDATE users SET full_name = ?, password = ?, role_id = ? WHERE id = ?',
-  [ full_name, password, role_id, id ],
-  (err, result) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'User not found' });
+  const { full_name, username, password, role_id, school_id, status } = req.body;
+
+  try {
+    const updates = [];
+    const values = [];
+
+    if (full_name !== undefined) {
+      updates.push('full_name = ?');
+      values.push(full_name);
+    }
+
+    if (username !== undefined) {
+      updates.push('username = ?');
+      values.push(username);
+    }
+
+    if (role_id !== undefined) {
+      updates.push('role_id = ?');
+      values.push(role_id);
+    }
+
+    if (school_id !== undefined) {
+      updates.push('school_id = ?');
+      values.push(school_id);
+    }
+
+    if (status !== undefined) {
+      updates.push('status = ?');
+      values.push(status);
+    }
+
+    if (password) {
+      // Only hash if password is provided & not empty
+      const hashed = await bcrypt.hash(password, 10);
+      updates.push('password = ?');
+      values.push(hashed);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    values.push(id);
+
+    const sql = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
+
+    const [result] = await db.query(sql, values);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
     res.json({ message: 'User updated successfully' });
+
+  } catch (err) {
+    console.error('Update user error:', err);
+    res.status(500).json({ error: err.message });
   }
-);
 });
 
+
 // Delete user by ID (admin only)
-router.delete('/:id', protect,  (req, res) => {
+router.delete('/:id', protect, async (req, res) => {
   const { id } = req.params;
-  db.query('DELETE FROM users WHERE id = ?', [id], (err, result) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'User not found' });
+
+  try {
+    const [result] = await db.query('DELETE FROM users WHERE id = ?', [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
     res.json({ message: 'User deleted successfully' });
-  });
+  } catch (err) {
+    console.error('Delete user error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
+
 
 module.exports = router;

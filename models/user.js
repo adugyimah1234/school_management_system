@@ -21,15 +21,16 @@ class User {
    * @param {string} email
    * @returns {Promise<Object|null>}
    */
-  static async findByEmail(email) {
-    try {
-      const [rows] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
-      return rows.length > 0 ? rows[0] : null;
-    } catch (error) {
-      console.error('Error finding user by email:', error);
-      throw error;
-    }
+  static async findByUsername(username) {
+  try {
+    const [rows] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
+    return rows.length > 0 ? rows[0] : null;
+  } catch (error) {
+    console.error('Error finding user by username:', error);
+    throw error;
   }
+}
+
 
   /**
    * Create a new user
