@@ -712,7 +712,6 @@ const html = `
         <div class="section-title">Exam Details</div>
         <table class="info-table">
           <tr><td class="label">Exam:</td><td>${receipt.exam_name || '3GS.E.C. Exams'}</td></tr>
-          <tr><td class="label">Category:</td><td>${receipt.category_name || ''}</td></tr>
           <tr><td class="label">Venue:</td><td>${receipt.exam_venue || ''}</td></tr>
           <tr><td class="label">Exam Date:</td><td>${receipt.exam_date ? new Date(receipt.exam_date).toLocaleDateString('en-US') : ''}</td></tr>
         </table>

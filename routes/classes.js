@@ -50,7 +50,7 @@ router.get('/', protect, async (req, res) => {
       queryParams.push(category_id);
     }
     
-    query += ' ORDER BY c.level ASC, c.name ASC';
+    query += ' ORDER BY c.name ASC';
     
     const [classes] = await db.query(query, queryParams);
     
@@ -112,21 +112,15 @@ router.get('/:id', protect, async (req, res) => {
  * @access  Private (Admin only)
  */
 router.post('/', protect, isAdmin, async (req, res) => {
-  const { name, level, slots, school_id } = req.body;
+  const { name, slots, school_id } = req.body;
   
   // Validate required fields
-  if (!name || !level || !school_id) {
+  if (!name || !school_id) {
     return res.status(400).json({ 
-      error: 'Please provide all required fields: name, level, slots, school_id' 
+      error: 'Please provide all required fields: name, slots, school_id' 
     });
   }
   
-  // Validate data types
-  if (isNaN(Number(level)) || isNaN(Number(school_id))) {
-    return res.status(400).json({
-      error: 'Level and school_id must be numeric values'
-    });
-  }
   
   try {
     // Verify school exists
@@ -153,8 +147,8 @@ router.post('/', protect, isAdmin, async (req, res) => {
     
     // Create new class
     const [result] = await db.query(
-      'INSERT INTO classes (name, level, slots, school_id) VALUES (?, ?, ?, ?)',
-      [name, level, slots, school_id]
+      'INSERT INTO classes (name, slots, school_id) VALUES (?, ?, ?)',
+      [name, slots, school_id]
     );
     
     res.status(201).json({
@@ -174,21 +168,15 @@ router.post('/', protect, isAdmin, async (req, res) => {
  */
 router.put('/:id', protect, isAdmin, async (req, res) => {
   const { id } = req.params;
-  const { name, level, slots, school_id } = req.body;
+  const { name, slots, school_id } = req.body;
   
   // Validate required fields
-  if (!name || !level || !school_id) {
+  if (!name ||  !school_id) {
     return res.status(400).json({ 
-      error: 'Please provide all required fields: name, level, school_id' 
+      error: 'Please provide all required fields: name, school_id' 
     });
   }
   
-  // Validate data types
-  if (isNaN(Number(level)) || isNaN(Number(school_id))) {
-    return res.status(400).json({
-      error: 'Level and school_id must be numeric values'
-    });
-  }
   
   try {
     // Verify class exists
@@ -225,8 +213,8 @@ router.put('/:id', protect, isAdmin, async (req, res) => {
     
     // Update class
     const [result] = await db.query(
-      'UPDATE classes SET name = ?, level = ?, slots = ?, school_id = ? WHERE id = ?',
-      [name, level, slots, school_id, id]
+      'UPDATE classes SET name = ?, slots = ?, school_id = ? WHERE id = ?',
+      [name, slots, school_id, id]
     );
     
     res.json({

@@ -29,6 +29,7 @@ router.post("/create", protect, async (req, res) => {
     email,
     phone_number,
     address,
+    previous_school,
     guardian_name,
     relationship,
     guardian_phone_number,
@@ -38,7 +39,7 @@ router.post("/create", protect, async (req, res) => {
 
   if (
     !first_name || !last_name || !category || !date_of_birth || !class_applying_for ||
-    !gender || !address || !guardian_name || !relationship || !guardian_phone_number || !academic_year_id
+    !gender || !address || !previous_school || !guardian_name || !relationship || !guardian_phone_number || !academic_year_id
   ) {
     return res.status(400).json({ error: "All required fields must be provided." });
   }
@@ -55,10 +56,10 @@ router.post("/create", protect, async (req, res) => {
 
     const [result] = await db.query(`
       INSERT INTO registrations 
-      (first_name, middle_name, last_name, category, date_of_birth, class_applying_for, gender, email, phone_number, address, guardian_name, relationship, guardian_phone_number, academic_year_id, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+      (first_name, middle_name, last_name, category, date_of_birth, class_applying_for, gender, email, phone_number, address, previous_school, guardian_name, relationship, guardian_phone_number, academic_year_id, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
         first_name, middle_name, last_name, category, date_of_birth,
-        class_applying_for, gender, email, phone_number, address,
+        class_applying_for, gender, email, phone_number, address, previous_school,
         guardian_name, relationship, guardian_phone_number, academic_year_id, status
       ]
     );
@@ -109,13 +110,13 @@ router.put("/:id", protect, async (req, res) => {
   const { id } = req.params;
   const {
     first_name, middle_name, last_name, category, date_of_birth,
-    class_applying_for, gender, email, phone_number, address,
+    class_applying_for, gender, email, phone_number, address, previous_school,
     guardian_name, relationship, guardian_phone_number, academic_year_id
   } = req.body;
 
   if (
     !first_name || !last_name || !category || !date_of_birth || !class_applying_for ||
-    !gender || !phone_number || !address || !guardian_name || !relationship ||
+    !gender || !phone_number || !address || !previous_school || !guardian_name || !relationship ||
     !guardian_phone_number || !academic_year_id
   ) {
     return res.status(400).json({ error: "All required fields must be provided." });
@@ -125,11 +126,11 @@ router.put("/:id", protect, async (req, res) => {
     const [result] = await db.query(`
       UPDATE registrations SET 
         first_name=?, middle_name=?, last_name=?, category=?, date_of_birth=?,
-        class_applying_for=?, gender=?, email=?, phone_number=?, address=?,
+        class_applying_for=?, gender=?, email=?, phone_number=?, address=?, previous_school=?,
         guardian_name=?, relationship=?, guardian_phone_number=?, academic_year_id=?
       WHERE id = ?`, [
         first_name, middle_name, last_name, category, date_of_birth,
-        class_applying_for, gender, email, phone_number, address,
+        class_applying_for, gender, email, phone_number, address, previous_school,
         guardian_name, relationship, guardian_phone_number, academic_year_id, id
       ]
     );

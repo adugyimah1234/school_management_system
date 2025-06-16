@@ -27,18 +27,18 @@ exports.getClassById = async (req, res) => {
 
 // ✅ Create new class
 exports.createClass = async (req, res) => {
-  const { school_id, name, level } = req.body;
+  const { school_id, name } = req.body;
 
-  if (!school_id || !name || !level) {
+  if (!school_id || !name) {
     return res.status(400).json({ 
-      error: "Please provide all required fields: school_id, name, level" 
+      error: "Please provide all required fields: school_id, name" 
     });
   }
 
   try {
     const [result] = await db.query(
-      'INSERT INTO classes (school_id, name, level) VALUES (?, ?, ?)',
-      [school_id, name, level]
+      'INSERT INTO classes (school_id, name) VALUES (?, ?)',
+      [school_id, name]
     );
 
     res.status(201).json({
@@ -53,18 +53,18 @@ exports.createClass = async (req, res) => {
 // ✅ Update class
 exports.updateClass = async (req, res) => {
   const { id } = req.params;
-  const { school_id, name, level } = req.body;
+  const { school_id, name} = req.body;
 
-  if (!school_id || !name || !level) {
+  if (!school_id || !name ) {
     return res.status(400).json({ 
-      error: "Please provide all required fields: school_id, name, level" 
+      error: "Please provide all required fields: school_id, name " 
     });
   }
 
   try {
     const [result] = await db.query(
-      'UPDATE classes SET school_id = ?, name = ?, level = ? WHERE id = ?',
-      [school_id, name, level, id]
+      'UPDATE classes SET school_id = ?, name = ? WHERE id = ?',
+      [school_id, name, id]
     );
 
     if (result.affectedRows === 0) {

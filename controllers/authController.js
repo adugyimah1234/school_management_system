@@ -37,7 +37,6 @@ const blacklistToken = (token) => {
   }
 };
 
-// ✅ LOGIN with await
 // ✅ LOGIN with username instead of email
 exports.login = async (req, res) => {
   const { username, password } = req.body; // ⬅️ changed from email
