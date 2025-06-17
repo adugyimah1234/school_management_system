@@ -24,6 +24,7 @@ const corsOptions = {
     const allowedOrigins = [
       'http://localhost:3000',
       'https://3-gec.com',
+      'http://172.24.192.1:3000'
     ];
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);

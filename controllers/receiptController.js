@@ -472,15 +472,15 @@ COALESCE(
 ) AS student_name,
       COALESCE(c.name, class_apply.name) AS class_name,
      CONCAT(u.full_name) AS issued_by_name,
-     sch.name AS school_name, 
-     sch.address AS school_address, 
+     sch.name AS school_name,
+     sch.address AS school_address,
      sch.phone_number AS school_phone,
-     p.payment_date, 
-     p.amount_paid, 
-     e.name AS exam_name, 
-     e.date AS exam_date, 
+     p.payment_date,
+     p.amount_paid,
+     e.name AS exam_name,
+     e.date AS exam_date,
      c.name AS class_name,
-     e.venue AS exam_venue, 
+     e.venue AS exam_venue,
      cat.name AS category_name,
     p.type AS payment_type,
     p.method AS payment_method
@@ -682,8 +682,8 @@ const html = `
 </head>
 <body>
 <div class="receipt-container">
-<img src="${logoSrc}" class="watermark" alt="Watermark Logo" " />
-<div class="text-watermark">SCHOOL COPY</div>
+<img src="${logoSrc}" class="watermark" alt="3 Garrison Schools Centre" " />
+<div class="text-watermark">Official Receipt</div>
     <div class="header">
       <img src="${logoSrc}" class="logo" alt="School Logo"" />
       <div class="school-name">${receipt.school_name || '3 GARRISON EDUCATION CENTRE'}</div>
@@ -709,11 +709,11 @@ const html = `
 
     ${receipt.receipt_type === 'registration' ? `
       <div class="section">
-        <div class="section-title">Exam Details</div>
+        <div class="section-title">Entrance Exam</div>
         <table class="info-table">
-          <tr><td class="label">Exam:</td><td>${receipt.exam_name || '3GS.E.C. Exams'}</td></tr>
-          <tr><td class="label">Venue:</td><td>${receipt.exam_venue || ''}</td></tr>
-          <tr><td class="label">Exam Date:</td><td>${receipt.exam_date ? new Date(receipt.exam_date).toLocaleDateString('en-US') : ''}</td></tr>
+          <tr><td class="label">Venue:</td><td>3 Garrison Schools</td></tr>
+          <tr><td class="label">Exam Date:</td><td>2 Aug 2025</td></tr>
+          <tr><td class="label">Time:</td><td>0700hrs</td></tr>
         </table>
       </div>
     ` : ''}
