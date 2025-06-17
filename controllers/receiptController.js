@@ -700,12 +700,15 @@ const html = `
       </table>
     </div>
 
-    <div class="section">
-      <div class="section-title">Recipient Info</div>
-      <table class="info-table">
-        <tr><td class="label">Name:</td><td>${receipt.student_name}</td></tr>
-      </table>
-    </div>
+
+<div class="section">
+  <div class="section-title">Recipient Info</div>
+  <table class="info-table">
+    <tr><td class="label">Name:</td><td>${receipt.student_name}</td></tr>
+    ${receipt.category_name ? `<tr><td class="label">Category:</td><td>${receipt.category_name}</td></tr>` : ''}
+  </table>
+</div>
+
 
     ${receipt.receipt_type === 'registration' ? `
       <div class="section">
@@ -727,6 +730,8 @@ const html = `
      <div class="amount-value">GHC ${parseFloat(receipt.amount).toFixed(2)}</div>
       </div>
     </div>
+
+    <div>Thank YOu For Choosing 3 Garrison Education Centre </div>
 
     <div class="print-btn">
       <button onclick="window.print()">🖨️ Print Receipt</button>

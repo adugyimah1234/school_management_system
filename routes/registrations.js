@@ -103,35 +103,25 @@ router.patch('/:id/payment-status', async (req, res) => {
 
 // ✅ Update a registration (admin only)
 router.put("/:id", protect, async (req, res) => {
-  if (!isAdmin(req)) {
-    return res.status(403).json({ error: "Only admins can update registrations." });
-  }
 
   const { id } = req.params;
   const {
     first_name, middle_name, last_name, category, date_of_birth,
     class_applying_for, gender, email, phone_number, address, previous_school,
-    guardian_name, relationship, guardian_phone_number, academic_year_id
+    guardian_name, relationship, guardian_phone_number, academic_year_id, scores
   } = req.body;
 
-  if (
-    !first_name || !last_name || !category || !date_of_birth || !class_applying_for ||
-    !gender || !phone_number || !address || !previous_school || !guardian_name || !relationship ||
-    !guardian_phone_number || !academic_year_id
-  ) {
-    return res.status(400).json({ error: "All required fields must be provided." });
-  }
 
   try {
     const [result] = await db.query(`
       UPDATE registrations SET 
         first_name=?, middle_name=?, last_name=?, category=?, date_of_birth=?,
         class_applying_for=?, gender=?, email=?, phone_number=?, address=?, previous_school=?,
-        guardian_name=?, relationship=?, guardian_phone_number=?, academic_year_id=?
+        guardian_name=?, relationship=?, guardian_phone_number=?, academic_year_id=?, scores=?
       WHERE id = ?`, [
         first_name, middle_name, last_name, category, date_of_birth,
         class_applying_for, gender, email, phone_number, address, previous_school,
-        guardian_name, relationship, guardian_phone_number, academic_year_id, id
+        guardian_name, relationship, guardian_phone_number, academic_year_id, id, scores
       ]
     );
 
