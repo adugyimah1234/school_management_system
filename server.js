@@ -63,7 +63,10 @@ const categoriesRouter = require('./routes/categories');
 const academicYearsRouter = require('./routes/academicYears');
 const roleRoutes = require('./routes/role.routes');
 const moduleRoutes = require('./routes/module');
+const receiptItemRoutes = require('./routes/receiptItemRoutes');
 const tuitionRoutes = require('./routes/tuitionRoutes');
+
+
 // ✅ Use routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -72,6 +75,7 @@ app.use('/api/roles', roleRoutes);
 app.use('/api/parents', parentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/classes', classRoutes);
+app.use('/api/receipt-items', receiptItemRoutes);
 app.use('/api/admissions', admissionRoutes);
 app.use('/api/registrations', registrationRoutes);
 app.use('/api/academic-years', academicYearsRouter);
@@ -84,6 +88,7 @@ app.use('/api/schools', schoolsRouter);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/modules', moduleRoutes);
 app.use('/api/tuition', tuitionRoutes);
+app.use('/api/fees/presets', require('./routes/presets'));
 
 // ✅ Global error handler
 app.use((err, req, res, next) => {
