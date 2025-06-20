@@ -539,6 +539,7 @@ const [result] = await db.query(
     }
 
     .logo {
+      text-align: center;
       height: 80px;
       margin-bottom: 10px;
     }
