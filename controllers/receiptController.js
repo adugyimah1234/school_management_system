@@ -124,10 +124,11 @@ exports.getAllReceipts = async (req, res) => {
     let query = `
       SELECT 
         r.*,
-        COALESCE(
-          TRIM(CONCAT(s.first_name, ' ', s.middle_name, ' ', s.last_name)),
-          TRIM(CONCAT(reg.first_name, ' ', reg.middle_name, ' ', reg.last_name))
-        ) AS student_name,
+COALESCE(
+  NULLIF(TRIM(CONCAT_WS(' ', s.first_name, s.middle_name, s.last_name)), ''),
+  NULLIF(TRIM(CONCAT_WS(' ', reg.first_name, reg.middle_name, reg.last_name)), ''),
+  'N/A'
+) AS student_name,
         c.name AS class_name,
         CONCAT(u.full_name) AS issued_by_name,
         sch.name AS school_name,
@@ -227,10 +228,11 @@ exports.getReceipt = async (req, res) => {
       `SELECT r.*, 
         s.first_name, s.middle_name, s.last_name,
         reg.first_name AS reg_first_name, reg.middle_name AS reg_middle_name, reg.last_name AS reg_last_name,
-        COALESCE(
-          TRIM(CONCAT(s.first_name, ' ', s.middle_name, ' ', s.last_name)),
-          TRIM(CONCAT(reg.first_name, ' ', reg.middle_name, ' ', reg.last_name))
-        ) AS student_name,
+COALESCE(
+  NULLIF(TRIM(CONCAT_WS(' ', s.first_name, s.middle_name, s.last_name)), ''),
+  NULLIF(TRIM(CONCAT_WS(' ', reg.first_name, reg.middle_name, reg.last_name)), ''),
+  'N/A'
+) AS student_name,
         COALESCE(c.name, class_apply.name) AS class_name,
         CONCAT(u.full_name) AS issued_by_name,
         sch.name AS school_name, 
@@ -396,10 +398,11 @@ exports.createReceipt = async (req, res) => {
 
     const [receiptRow] = await connection.query(
       `SELECT r.*,
-         COALESCE(
-           TRIM(CONCAT(s.first_name, ' ', s.middle_name, ' ', s.last_name)),
-           TRIM(CONCAT(reg.first_name, ' ', reg.middle_name, ' ', reg.last_name))
-         ) AS student_name,
+COALESCE(
+  NULLIF(TRIM(CONCAT_WS(' ', s.first_name, s.middle_name, s.last_name)), ''),
+  NULLIF(TRIM(CONCAT_WS(' ', reg.first_name, reg.middle_name, reg.last_name)), ''),
+  'N/A'
+) AS student_name,
          c.name AS class_name,
          sch.name AS school_name,
          CONCAT(u.full_name) AS issued_by_name
@@ -445,10 +448,11 @@ exports.getPrintableReceipt = async (req, res) => {
 const [result] = await db.query(
   `
   SELECT r.*, 
-    COALESCE(
-      TRIM(CONCAT(s.first_name, ' ', s.middle_name, ' ', s.last_name)),
-      TRIM(CONCAT(reg.first_name, ' ', reg.middle_name, ' ', reg.last_name))
-    ) AS student_name,
+COALESCE(
+  NULLIF(TRIM(CONCAT_WS(' ', s.first_name, s.middle_name, s.last_name)), ''),
+  NULLIF(TRIM(CONCAT_WS(' ', reg.first_name, reg.middle_name, reg.last_name)), ''),
+  'N/A'
+) AS student_name,
     c.name AS class_name,
     CONCAT(u.full_name) AS issued_by_name,
     sch.name AS school_name,

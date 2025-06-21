@@ -19,7 +19,25 @@ const Student = {
   async delete(id) {
     const [result] = await db.query('DELETE FROM students WHERE id = ?', [id]);
     return result;
-  }
+  },
+
+    async promote(id) {
+      // Example: increment class_id by 1 (adjust logic as needed)
+      const [result] = await db.query(
+        'UPDATE students SET class_id = class_id + 1 WHERE id = ?',
+        [id]
+      );
+      return result;
+    },
+  
+    async transfer(id, newSchoolId, newClassId) {
+      const [result] = await db.query(
+        'UPDATE students SET school_id = ?, class_id = ? WHERE id = ?',
+        [newSchoolId, newClassId, id]
+      );
+      return result;
+    }
+  
 };
 
 module.exports = Student;
