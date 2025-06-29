@@ -388,6 +388,17 @@ exports.createReceipt = async (req, res) => {
       );
     }
 
+    // ✅ If this is a registration receipt, update registration payment_status to 'paid'
+if (
+  receipt_type.some((rt) => ["registration", "admission"].includes(rt.type)) &&
+  registration_id
+) {
+  await connection.query(
+    `UPDATE registrations SET payment_status = 'paid' WHERE id = ?`,
+    [registration_id]
+  );
+}
+
     await connection.commit();
 
     // ✅ Fetch joined receipt + items
@@ -527,8 +538,8 @@ COALESCE(
     }
 
     .receipt-container {
-      max-width: 400px;
-      width: 100%;
+      max-width: 300px;
+      width: 130%;
       margin: 0 auto;
       padding: 40px;
       border: 1px solid #ccc;
@@ -657,45 +668,45 @@ COALESCE(
     </div>
 
     <div class="section">
-      <div class="section-title">Receipt Info</div>
+    <div class="section-title">Receipt Info</div>
       <table class="info-table">
         <tr><td class="label">Receipt No:</td><td>R-${receipt.id.toString().padStart(6, "0")}</td></tr>
         <tr><td class="label">Date Issued:</td><td>${formattedDate}</td></tr>
-      </table>
+    </table>
     </div>
 
     <div class="section">
-      <div class="section-title">Recipient Info</div>
+    <div class="section-title">Recipient Info</div>
       <table class="info-table">
         <tr><td class="label">Name:</td><td>${receipt.student_name}</td></tr>
-${!hasRegistration ? `
+      ${!hasRegistration ? `
 <tr><td class="label">Category:</td><td>${receipt.category_name || ''}</td></tr>
 <tr><td class="label">Class:</td><td>${receipt.class_name || ''}</td></tr>
 <tr><td class="label">School:</td><td>${receipt.school_name || ''}</td></tr>
-` : ''}
+      ` : ''}
 
-      </table>
+    </table>
     </div>
 
     <div class="section">
-      <div class="section-title">Payment Options</div>
+    <div class="section-title">Payment Options</div>
       <table class="info-table">
-        ${receipt.receipt_items.map(item => `
-          <tr>
+      ${receipt.receipt_items.map(item => `
+        <tr>
             <td class="label">${item.receipt_type.charAt(0).toUpperCase() + item.receipt_type.slice(1)}</td>
             <td style="text-align: right; font-weight: bold; color: #2E6F40;">PAID</td>
           </tr>`).join("")}
-      </table>
+    </table>
     </div>
 
     ${receipt.receipt_items.some(item => item.receipt_type === "registration") ? `
       <div class="section">
-        <div class="section-title">Entrance Exam</div>
+      <div class="section-title">Entrance Exam</div>
         <table class="info-table">
           <tr><td class="label">Venue:</td><td>3 Garrison Schools</td></tr>
           <tr><td class="label">Exam Date:</td><td>2 Aug 2025</td></tr>
           <tr><td class="label">Time:</td><td>0700hrs</td></tr>
-        </table>
+      </table>
       </div>` : ""}
 
     <div class="signatures">

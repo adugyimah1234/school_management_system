@@ -23,6 +23,7 @@ const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = [
       'http://localhost:3000',
+      'http://localhost:3001',
       'http://192.168.241.96:3000',
       'https://3-gec.com'
     ];
@@ -100,7 +101,7 @@ app.use((err, req, res, next) => {
 });
 
 // ✅ Start server
-const PORT = process.env.SERVER_PORT || 3000;
+const PORT = process.env.SERVER_PORT || 5001;
 const server = app.listen(PORT, () =>
   console.log(`🚀 Server running on port ${PORT}`)
 );
