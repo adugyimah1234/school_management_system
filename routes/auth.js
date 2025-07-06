@@ -10,6 +10,7 @@ router.post('/register', authController.register);
 
 // Protected routes
 router.post('/logout', protect, authController.logout);
+router.post('/change-password', authController.changePassword);
 router.get('/validate', authController.validateToken); // Can be called without protect middleware
 router.get('/me', protect, (req, res) => {
   // Get current user info

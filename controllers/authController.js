@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const db = require('../config/db');
+const User = require('../models/user');
 require('dotenv').config();
 
 const tokenBlacklist = new Set();
@@ -156,6 +157,36 @@ exports.validateToken = async (req, res) => {
   } catch (error) {
     console.error('Token validation error:', error);
     res.status(401).json({ success: false, message: 'Invalid or expired token' });
+  }
+};
+
+// ✅ CHANGE PASSWORD
+exports.changePassword = async (req, res) => {
+  const { username, currentPassword, newPassword } = req.body;
+
+  if (!username || !currentPassword || !newPassword) {
+    return res.status(400).json({ message: 'All fields are required' });
+  }
+
+  try {
+    const user = await User.findByUsername(username);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await User.update(user.id, { password: hashedPassword });
+
+    res.status(200).json({ message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 };
 
