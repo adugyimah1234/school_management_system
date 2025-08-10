@@ -12,7 +12,14 @@ const Student = {
   },
 
   async create(studentData) {
+    // Make sure jersey_size is included in studentData if provided
     const [result] = await db.query('INSERT INTO students SET ?', [studentData]);
+    return result;
+  },
+
+  async update(id, studentData) {
+    // Add this method if not present, or update it to include jersey_size
+    const [result] = await db.query('UPDATE students SET ? WHERE id = ?', [studentData, id]);
     return result;
   },
 

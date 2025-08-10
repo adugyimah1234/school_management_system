@@ -27,8 +27,7 @@ exports.getStudent = async (req, res) => {
 
 // ✅ Create a new student
 exports.createStudent = async (req, res) => {
-  const studentData = req.body;
-
+  const studentData = req.body; // jersey_size will be included if sent from frontend
   try {
     const result = await Student.create(studentData);
     res.status(201).json({ id: result.insertId, ...studentData });
@@ -75,18 +74,20 @@ exports.transferStudent = async (req, res) => {
 // 🚀 Update student details
 exports.updateStudent = async (req, res) => {
   const { id } = req.params;
-  const studentData = req.body;
+  const studentData = req.body; // jersey_size will be included if sent from frontend
 
   try {
     const result = await Student.update(id, studentData);
     if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Student not found' });
+      return res.status(404).json({ error: "Student not found." });
     }
-    res.json({ message: 'Student updated', ...studentData });
+    res.json({ message: "Student updated", ...studentData });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
+
 // 🚀 Get students by class
 exports.getStudentsByClass = async (req, res) => {
   const { class_id } = req.params;
