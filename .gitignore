@@ -1,1 +1,4 @@
 .vercel
+
+# local environment variables
+.env
