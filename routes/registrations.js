@@ -1,15 +1,32 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
-const { protect } = require("../middlewares/authMiddleware");
+const {
+  protect,
+  loadAccessContext,
+  resolveBranch,
+  enforceScopeOnWrite
+} = require("../middlewares/authMiddleware");
 
 // Utility to check admin role
 const isAdmin = (req) => req.user?.role === "admin";
+const scopedWhere = (req) => {
+  const params = [req.scope.tenantId, req.scope.schoolId];
+  let sql = "tenant_id = ? AND school_id = ?";
+  if (req.scope.branchId) {
+    sql += " AND branch_id = ?";
+    params.push(req.scope.branchId);
+  }
+  return { sql, params };
+};
+
+router.use(protect, loadAccessContext, resolveBranch());
 
 // ✅ Get all registrations
-router.get("/", protect, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
-    const [results] = await db.query("SELECT * FROM registrations");
+    const scope = scopedWhere(req);
+    const [results] = await db.query(`SELECT * FROM registrations WHERE ${scope.sql}`, scope.params);
     res.json(results);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -17,7 +34,7 @@ router.get("/", protect, async (req, res) => {
 });
 
 // ✅ Create a registration
-router.post("/create", protect, async (req, res) => {
+router.post("/create", enforceScopeOnWrite({ branchRequired: false }), async (req, res) => {
   const {
     first_name,
     middle_name,
@@ -56,8 +73,9 @@ router.post("/create", protect, async (req, res) => {
 
     const [result] = await db.query(`
       INSERT INTO registrations 
-      (first_name, middle_name, last_name, category, date_of_birth, class_applying_for, gender, email, phone_number, address, previous_school, guardian_name, relationship, guardian_phone_number, academic_year_id, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+      (tenant_id, school_id, branch_id, first_name, middle_name, last_name, category, date_of_birth, class_applying_for, gender, email, phone_number, address, previous_school, guardian_name, relationship, guardian_phone_number, academic_year_id, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+        req.scope.tenantId, req.scope.schoolId, req.scope.branchId ?? null,
         first_name, middle_name, last_name, category, date_of_birth,
         class_applying_for, gender, email, phone_number, address, previous_school,
         guardian_name, relationship, guardian_phone_number, academic_year_id, status
@@ -71,9 +89,13 @@ router.post("/create", protect, async (req, res) => {
 });
 
 // ✅ Get registration by ID
-router.get("/:id", protect, async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
-    const [results] = await db.query("SELECT * FROM registrations WHERE id = ?", [req.params.id]);
+    const scope = scopedWhere(req);
+    const [results] = await db.query(
+      `SELECT * FROM registrations WHERE id = ? AND ${scope.sql}`,
+      [req.params.id, ...scope.params]
+    );
     if (results.length === 0) return res.status(404).json({ error: "Registration not found." });
     res.json(results[0]);
   } catch (err) {
@@ -85,9 +107,10 @@ router.patch('/:id/payment-status', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [result] = await db.promise().query(
-      'UPDATE registrations SET payment_status = ? WHERE id = ?',
-      ['paid', id]
+    const scope = scopedWhere(req);
+    const [result] = await db.query(
+      `UPDATE registrations SET payment_status = ? WHERE id = ? AND ${scope.sql}`,
+      ['paid', id, ...scope.params]
     );
 
     if (result.affectedRows === 0) {
@@ -102,7 +125,7 @@ router.patch('/:id/payment-status', async (req, res) => {
 });
 
 // ✅ Update a registration (admin only)
-router.put("/:id", protect, async (req, res) => {
+router.put("/:id", enforceScopeOnWrite({ branchRequired: false }), async (req, res) => {
 
   const { id } = req.params;
   const {
@@ -118,10 +141,10 @@ router.put("/:id", protect, async (req, res) => {
         first_name=?, middle_name=?, last_name=?, category=?, date_of_birth=?,
         class_applying_for=?, gender=?, email=?, phone_number=?, address=?, previous_school=?,
         guardian_name=?, relationship=?, guardian_phone_number=?, academic_year_id=?, scores=?
-      WHERE id = ?`, [
+      WHERE id = ? AND tenant_id = ? AND school_id = ?`, [
         first_name, middle_name, last_name, category, date_of_birth,
         class_applying_for, gender, email, phone_number, address, previous_school,
-        guardian_name, relationship, guardian_phone_number, academic_year_id, id, scores
+        guardian_name, relationship, guardian_phone_number, academic_year_id, scores, id, req.scope.tenantId, req.scope.schoolId
       ]
     );
 
@@ -136,7 +159,7 @@ router.put("/:id", protect, async (req, res) => {
 });
 
 // ✅ Partial update (PATCH)
-router.patch("/:id", protect, async (req, res) => {
+router.patch("/:id", enforceScopeOnWrite({ branchRequired: false }), async (req, res) => {
   if (!isAdmin(req)) {
     return res.status(403).json({ error: "Only admins can update registrations." });
   }
@@ -163,8 +186,8 @@ router.patch("/:id", protect, async (req, res) => {
 
   try {
     const [result] = await db.query(
-      `UPDATE registrations SET ${fields} WHERE id = ?`,
-      values
+      `UPDATE registrations SET ${fields} WHERE id = ? AND tenant_id = ? AND school_id = ?`,
+      [...values, req.scope.tenantId, req.scope.schoolId]
     );
 
     if (result.affectedRows === 0) {
@@ -178,7 +201,7 @@ router.patch("/:id", protect, async (req, res) => {
 });
 
 // ✅ Update status (admin only)
-router.patch("/:id/status", protect, async (req, res) => {
+router.patch("/:id/status", async (req, res) => {
   if (!isAdmin(req)) {
     return res.status(403).json({ error: "Only admins can update registration status." });
   }
@@ -193,8 +216,8 @@ router.patch("/:id/status", protect, async (req, res) => {
 
   try {
     const [result] = await db.query(
-      "UPDATE registrations SET status = ? WHERE id = ?",
-      [status, id]
+      "UPDATE registrations SET status = ? WHERE id = ? AND tenant_id = ? AND school_id = ?",
+      [status, id, req.scope.tenantId, req.scope.schoolId]
     );
 
     if (result.affectedRows === 0) {
@@ -208,13 +231,16 @@ router.patch("/:id/status", protect, async (req, res) => {
 });
 
 // ✅ Delete registration (admin only)
-router.delete("/:id", protect, async (req, res) => {
+router.delete("/:id", async (req, res) => {
   if (!isAdmin(req)) {
     return res.status(403).json({ error: "Only admins can delete registrations." });
   }
 
   try {
-    const [result] = await db.query("DELETE FROM registrations WHERE id = ?", [req.params.id]);
+    const [result] = await db.query(
+      "DELETE FROM registrations WHERE id = ? AND tenant_id = ? AND school_id = ?",
+      [req.params.id, req.scope.tenantId, req.scope.schoolId]
+    );
     if (result.affectedRows === 0) return res.status(404).json({ error: "Registration not found." });
     res.json({ message: "Registration deleted successfully." });
   } catch (err) {

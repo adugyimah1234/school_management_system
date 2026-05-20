@@ -10,8 +10,11 @@ const generateToken = (user) => {
   return jwt.sign(
     {
       id: user.id,
-      role: user.role,
+      role: user.role_name || user.role,
+      role_id: user.role_id || null,
+      tenant_id: user.tenant_id || null,
       school_id: user.school_id,
+      branch_id: user.branch_id || null,
       iat: Math.floor(Date.now() / 1000),
     },
     process.env.JWT_SECRET,
@@ -44,7 +47,7 @@ exports.login = async (req, res) => {
 
   try {
     const [results] = await db.query(`
-      SELECT users.*, roles.name AS role 
+      SELECT users.*, roles.name AS role_name, roles.id AS role_id
       FROM users 
       JOIN roles ON users.role_id = roles.id 
       WHERE users.username = ?
@@ -64,7 +67,14 @@ exports.login = async (req, res) => {
     res.status(200).json({
       message: 'Login successful',
       token,
-      user: { id: user.id, role: user.role }
+      user: {
+        id: user.id,
+        role: user.role_name,
+        role_id: user.role_id,
+        tenant_id: user.tenant_id,
+        school_id: user.school_id,
+        branch_id: user.branch_id
+      }
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -75,16 +85,51 @@ exports.login = async (req, res) => {
 
 // ✅ REGISTER with await
 exports.register = async (req, res) => {
-  const { full_name, username,  password, role, school_id } = req.body;
+  const {
+    full_name,
+    username,
+    password,
+    role_id,
+    role,
+    tenant_id,
+    school_id,
+    branch_id
+  } = req.body;
 
-if (!full_name || !username || !password || !role || !school_id) {
+if (!full_name || !username || !password || !school_id || !tenant_id || (!role_id && !role)) {
   return res.status(400).json({ message: 'All fields are required' });
 }
 
   try {
+    let resolvedRoleId = role_id;
+    if (!resolvedRoleId && role) {
+      const [roleRows] = await db.query('SELECT id FROM roles WHERE name = ? LIMIT 1', [role]);
+      if (!roleRows.length) {
+        return res.status(400).json({ message: 'Invalid role' });
+      }
+      resolvedRoleId = roleRows[0].id;
+    }
+
+    const [schoolRows] = await db.query(
+      'SELECT id FROM schools WHERE id = ? AND tenant_id = ? LIMIT 1',
+      [school_id, tenant_id]
+    );
+    if (!schoolRows.length) {
+      return res.status(400).json({ message: 'School does not belong to tenant' });
+    }
+
+    if (branch_id) {
+      const [branchRows] = await db.query(
+        'SELECT id FROM branches WHERE id = ? AND tenant_id = ? AND school_id = ? LIMIT 1',
+        [branch_id, tenant_id, school_id]
+      );
+      if (!branchRows.length) {
+        return res.status(400).json({ message: 'Branch does not belong to tenant/school' });
+      }
+    }
     const [existing] = await db.query(
-  'SELECT id FROM users WHERE username = ?',
-  [ username]
+  'SELECT id FROM users WHERE username = ? AND tenant_id = ?',
+  [username, tenant_id]
 );
 
 if (existing.length > 0) {
@@ -94,9 +139,9 @@ if (existing.length > 0) {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     await db.query(`
-  INSERT INTO users (full_name, username, password, role, school_id)
-  VALUES (?, ?, ?, ?, ?)
-`, [full_name, username, hashedPassword, role, school_id]);
+  INSERT INTO users (full_name, username, password, role_id, tenant_id, school_id, branch_id)
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+`, [full_name, username, hashedPassword, resolvedRoleId, tenant_id, school_id, branch_id || null]);
 
     res.status(201).json({ message: 'User registered successfully' });
   } catch (err) {
@@ -140,7 +185,10 @@ exports.validateToken = async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const [results] = await db.query(
-      'SELECT id, role_id FROM users WHERE id = ?',
+      `SELECT u.id, u.tenant_id, u.school_id, u.branch_id, r.name AS role, r.id AS role_id
+       FROM users u
+       LEFT JOIN roles r ON r.id = u.role_id
+       WHERE u.id = ?`,
       [decoded.id]
     );
 
@@ -152,7 +200,7 @@ exports.validateToken = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Token is valid',
-      user: { id: decoded.id, role: decoded.role },
+      user: results[0],
     });
   } catch (error) {
     console.error('Token validation error:', error);

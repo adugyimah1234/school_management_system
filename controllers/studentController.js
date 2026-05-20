@@ -3,7 +3,7 @@ const Student = require('../models/studentModel');
 // ✅ Get all students
 exports.getAllStudents = async (req, res) => {
   try {
-    const students = await Student.getAll();
+    const students = await Student.getAll(req.scope);
     res.json(students);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -15,7 +15,7 @@ exports.getStudent = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const student = await Student.getById(id);
+    const student = await Student.getById(id, req.scope);
     if (!student || student.length === 0) {
       return res.status(404).json({ message: 'Student not found' });
     }
@@ -29,7 +29,7 @@ exports.getStudent = async (req, res) => {
 exports.createStudent = async (req, res) => {
   const studentData = req.body; // jersey_size will be included if sent from frontend
   try {
-    const result = await Student.create(studentData);
+    const result = await Student.create(studentData, req.scope);
     res.status(201).json({ id: result.insertId, ...studentData });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -41,7 +41,10 @@ exports.deleteStudent = async (req, res) => {
   const { id } = req.params;
 
   try {
-    await Student.delete(id);
+    const result = await Student.delete(id, req.scope);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Student not found in current scope' });
+    }
     res.json({ message: 'Student deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -53,7 +56,10 @@ exports.deleteStudent = async (req, res) => {
 exports.promoteStudent = async (req, res) => {
   const { id } = req.params;
   try {
-    await Student.promote(id);
+    const result = await Student.promote(id, req.scope);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Student not found in current scope' });
+    }
     res.json({ message: 'Student promoted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -65,7 +71,10 @@ exports.transferStudent = async (req, res) => {
   const { id } = req.params;
   const { school_id, class_id } = req.body;
   try {
-    await Student.transfer(id, school_id, class_id);
+    const result = await Student.transfer(id, school_id, class_id, req.scope);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Student/class not found in current tenant scope' });
+    }
     res.json({ message: 'Student transferred' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -77,7 +86,7 @@ exports.updateStudent = async (req, res) => {
   const studentData = req.body; // jersey_size will be included if sent from frontend
 
   try {
-    const result = await Student.update(id, studentData);
+    const result = await Student.update(id, studentData, req.scope);
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: "Student not found." });
     }
