@@ -1,8 +1,20 @@
 const db = require('../config/db');
+const crypto = require('crypto');
 
 const Student = {
-  async getAll() {
-    const [rows] = await db.query('SELECT * FROM students');
+  async getAll(filter = {}) {
+    let sql = 'SELECT * FROM students';
+    const params = [];
+
+    if (Object.keys(filter).length > 0) {
+      const conditions = Object.keys(filter).map(key => {
+        params.push(filter[key]);
+        return `${key} = ?`;
+      });
+      sql += ` WHERE ${conditions.join(' AND ')}`;
+    }
+
+    const [rows] = await db.query(sql, params);
     return rows;
   },
 
@@ -12,13 +24,13 @@ const Student = {
   },
 
   async create(studentData) {
-    // Make sure jersey_size is included in studentData if provided
-    const [result] = await db.query('INSERT INTO students SET ?', [studentData]);
-    return result;
+    const id = studentData.id || crypto.randomUUID();
+    const record = { id, ...studentData };
+    const [result] = await db.query('INSERT INTO students SET ?', [record]);
+    return { id, ...result };
   },
 
   async update(id, studentData) {
-    // Add this method if not present, or update it to include jersey_size
     const [result] = await db.query('UPDATE students SET ? WHERE id = ?', [studentData, id]);
     return result;
   },
@@ -28,23 +40,21 @@ const Student = {
     return result;
   },
 
-    async promote(id) {
-      // Example: increment class_id by 1 (adjust logic as needed)
-      const [result] = await db.query(
-        'UPDATE students SET class_id = class_id + 1 WHERE id = ?',
-        [id]
-      );
-      return result;
-    },
-  
-    async transfer(id, newSchoolId, newClassId) {
-      const [result] = await db.query(
-        'UPDATE students SET school_id = ?, class_id = ? WHERE id = ?',
-        [newSchoolId, newClassId, id]
-      );
-      return result;
-    }
-  
+  async promote(id, newClassId) {
+    const [result] = await db.query(
+      'UPDATE students SET class_id = ? WHERE id = ?',
+      [newClassId, id]
+    );
+    return result;
+  },
+
+  async transfer(id, newSchoolId, newClassId) {
+    const [result] = await db.query(
+      'UPDATE students SET school_id = ?, class_id = ? WHERE id = ?',
+      [newSchoolId, newClassId, id]
+    );
+    return result;
+  }
 };
 
 module.exports = Student;

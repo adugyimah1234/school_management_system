@@ -570,7 +570,7 @@ const Payment = {
           const totalRemaining = feeSummary.reduce((sum, fee) => sum + fee.remaining_amount, 0);
           
           callback(null, {
-            student_id: parseInt(studentId),
+            student_id: studentId,
             payments,
             fee_summary: feeSummary,
             total_paid: totalPaid,
@@ -636,7 +636,7 @@ const Payment = {
     const totalRemaining = feeSummary.reduce((sum, fee) => sum + parseFloat(fee.remaining_amount), 0);
     
     return {
-      student_id: parseInt(studentId),
+      student_id: studentId,
       payments,
       fee_summary: feeSummary,
       total_paid: totalPaid,

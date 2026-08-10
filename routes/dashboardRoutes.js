@@ -1,9 +1,10 @@
 const express = require('express');
 const { getFinancialOverview } = require('../controllers/dashboardController');
+const { protect } = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
-router.get('/financial-overview', getFinancialOverview);
+router.get('/financial-overview', protect, getFinancialOverview);
 
 module.exports = router;
 // This module defines a route for fetching the financial overview of the dashboard.

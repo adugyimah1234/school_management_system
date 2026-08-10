@@ -1,91 +1,68 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../config/db');
 const feeController = require('../controllers/feeController');
 const paymentController = require('../controllers/paymentController');
 const receiptController = require('../controllers/receiptController');
 const { protect, isAdmin } = require('../middlewares/authMiddleware');
+const { apiLimiter } = require('../middleware/rateLimiter');
 
-console.log('feeController:', feeController);
-console.log('paymentController:', paymentController);
-console.log('receiptController:', receiptController);
-// Fee routes
-router.get('/', protect, (req, res) => {
-  db.query('SELECT * FROM fees', (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(results);
-  });
-});
+// Apply general API rate limiting
+router.use(apiLimiter);
 
-router.post('/', protect, async (req, res) => {
-  const { amount, category_id, description, academic_year_id } = req.body;
+// --- Fee Routes ---
 
-  // Validate required fields
-  if (!amount || !category_id || !academic_year_id) {
-    return res.status(400).json({
-      error: "Please provide all required fields: amount, category_id, academic_year_id"
-    });
-  }
+// List all fees
+router.get('/', protect, feeController.getAllFees);
 
-  try {
-    const [result] = await db.query(
-      'INSERT INTO fees (amount, category_id, description, academic_year_id) VALUES (?, ?, ?, ?)',
-      [amount, category_id, description, academic_year_id]
-    );
-
-    res.status(201).json({
-      id: result.insertId,
-      message: 'Fee created successfully'
-    });
-  } catch (err) {
-    console.error('Error creating fee:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
+// Legacy endpoint support
 router.get('/get', protect, feeController.getFee);
 
-router.put('/:id', 
-  protect, // Authentication middleware
-  isAdmin, // Authorization middleware
-  (req, res) => {
-    const { id } = req.params;
-    const { amount, category_id, description, academic_year_id } = req.body;
+// Create new fee structure
+router.post('/', protect, isAdmin, feeController.createFee);
 
-    if (!amount || !category_id || !academic_year_id) {
-      return res.status(400).json({
-        error: "Please provide all required fields: amount, category_id, academic_year_id"
-      });
-    }
+// Update fee structure
+router.put('/:id', protect, isAdmin, feeController.updateFee);
 
-    db.promise().query(
-      'UPDATE fees SET amount = ?, category_id = ?, description = ?, academic_year_id = ? WHERE id = ?',
-      [amount, category_id, description, academic_year_id, id]
-    )
-    .then(([result]) => {
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ error: 'Fee not found' });
-      }
-      res.json({ message: 'Fee updated successfully' });
-    })
-    .catch(err => {
-      res.status(500).json({ error: err.message });
-    });
-  }
-);
+// Delete fee structure
 router.delete('/:id', protect, isAdmin, feeController.deleteFee);
+
+// Get outstanding fees for a specific student
 router.get('/outstanding/:studentId', protect, feeController.getOutstandingFees);
 
-// Payment routes
+// Get general debt ledger
+router.get('/ledger', protect, isAdmin, feeController.getDebtLedger);
+
+// Send debt reminders
+router.post('/reminders', protect, isAdmin, feeController.sendDebtReminders);
+
+
+// --- Payment Routes ---
+
+// List all payments
 router.get('/payments', protect, paymentController.getAllPayments);
+
+// Get specific payment details
 router.get('/payments/:id', protect, paymentController.getPayment);
+
+// Record a new payment
 router.post('/payments', protect, paymentController.createPayment);
+
+// Get all payments for a specific student
 router.get('/payments/student/:studentId', protect, paymentController.getStudentPaymentHistory);
 
-// Receipt routes
+
+// --- Receipt Routes ---
+
+// List all receipts
 router.get('/receipts', protect, receiptController.getAllReceipts);
+
+// Get specific receipt details
 router.get('/receipts/:id', protect, receiptController.getReceipt);
-router.post('/receipts', protect, receiptController.createReceipt);
+
+// Manually generate a receipt
+router.post('/receipts', protect, isAdmin, receiptController.createReceipt);
+
+// Get printable HTML for a receipt
 router.get('/receipts/:id/print', protect, receiptController.getPrintableReceipt);
 
 module.exports = router;

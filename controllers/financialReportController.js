@@ -18,14 +18,29 @@ const db = require('../config/db');
 async function getFinancialSummary(req, res) {
   try {
     const { startDate, endDate } = req.query;
+    const user = req.user;
 
-    const [rows] = await db.query(
-      `SELECT method, SUM(amount) AS total
-       FROM transactions
-       WHERE DATE(created_at) BETWEEN ? AND ?
-       GROUP BY method`,
-      [startDate, endDate]
-    );
+    let query = `
+      SELECT method, SUM(amount) AS total
+      FROM transactions
+      WHERE DATE(created_at) BETWEEN ? AND ?
+    `;
+    let params = [startDate, endDate];
+
+    if (user && user.role !== 'superadmin' && user.role !== 'super_admin') {
+      if (user.garrison_id) {
+        query += ' AND garrison_id = ?';
+        params.push(user.garrison_id);
+      }
+      if (user.school_id) {
+        query += ' AND school_id = ?';
+        params.push(user.school_id);
+      }
+    }
+
+    query += ' GROUP BY method';
+
+    const [rows] = await db.query(query, params);
 
     res.json({ summary: rows });
   } catch (err) {

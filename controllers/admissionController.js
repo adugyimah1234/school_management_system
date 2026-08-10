@@ -1,3 +1,21 @@
+const admissionService = require("../services/admissionService");
+const response = require("../utils/apiResponse");
+
+/**
+ * Bulk Admission Controller
+ */
+exports.bulkAdmit = async (req, res, next) => {
+    try {
+        const results = await admissionService.bulkAdmit(req.body, req.user);
+        return response.success(res, results, "Bulk admission process completed");
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * Legacy Support
+ */
 const Admission = require('../models/admissionModel');
 
 exports.createAdmission = (req, res) => {

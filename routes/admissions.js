@@ -4,6 +4,7 @@ const admissionController = require('../controllers/admissionController');
 const { protect } = require('../middlewares/authMiddleware');
 
 router.post('/', protect, admissionController.createAdmission);
+router.post('/bulk', protect, admissionController.bulkAdmit);
 router.get('/:id', protect, admissionController.getAdmissionsByStudent);
 
 module.exports = router;

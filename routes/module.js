@@ -1,6 +1,6 @@
 const express = require('express');
 const { protect, authorize } = require('../middleware/auth');
-const { rateLimiter } = require('../middleware/rateLimiter');
+const { smartLimiter } = require('../middleware/rateLimiter');
 const {
   getUserModuleAccess,
   updateModuleAccess,
@@ -11,7 +11,7 @@ const {
 const router = express.Router();
 
 // Apply rate limiting to all module routes
-const modulesRateLimit = rateLimiter({
+const modulesRateLimit = smartLimiter({
   windowMs: 60 * 1000, // 1 minute
   max: 60, // 60 requests per minute
   message: { success: false, error: { message: 'Too many requests, please try again later.' } }

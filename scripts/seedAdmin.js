@@ -1,28 +1,40 @@
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const db = require('../config/db');
+const crypto = require('crypto');
 
 const seedAdmin = async () => {
   const fullName = 'System Admin';
-  const email = 'admin@school.com';
-  const plainPassword = 'password';
-  const role = 'admin';
-  const schoolId = 1;
+  const username = 'admin';
+  const plainPassword = 'password123';
+  const roleName = 'admin';
 
   try {
-    const hashedPassword = await bcrypt.hash(plainPassword, 10);
+    // 1. Get role_id for admin
+    const [roles] = await db.query('SELECT id FROM roles WHERE name = ?', [roleName]);
+    if (roles.length === 0) {
+      console.error('❌ Role "admin" not found. Please run migrations first.');
+      process.exit(1);
+    }
+    const roleId = roles[0].id;
 
+    // 2. Hash password
+    const hashedPassword = await bcrypt.hash(plainPassword, 10);
+    const id = crypto.randomUUID();
+
+    // 3. Insert admin user (assuming modern schema with UUID and role_id)
     const sql = `
-      INSERT INTO users (full_name, email, password, role, school_id)
+      INSERT INTO users (id, full_name, username, password, role_id)
       VALUES (?, ?, ?, ?, ?)
     `;
 
-    db.query(sql, [fullName, email, hashedPassword, role, schoolId], (err, result) => {
-      if (err) throw err;
-      console.log('✅ Admin user inserted:', result.insertId);
-      process.exit();
-    });
+    await db.query(sql, [id, fullName, username, hashedPassword, roleId]);
+
+    console.log('✅ Admin user inserted successfully.');
+    console.log('Username: admin');
+    console.log('Password: password123');
+    process.exit(0);
   } catch (error) {
-    console.error('❌ Error inserting admin:', error);
+    console.error('❌ Error inserting admin:', error.message);
     process.exit(1);
   }
 };

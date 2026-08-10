@@ -1,48 +1,42 @@
-const bcrypt = require('bcryptjs');
-const db = require('../config/db'); // uses mysql2/promise
+const userService = require('../services/userService');
+const response = require('../utils/apiResponse');
 
 // ✅ Register new user
-exports.register = async (req, res) => {
-  const { full_name, email, password, role_id, school_id } = req.body;
-
-  if (!full_name || !email || !password || !role_id || !school_id) {
-    return res.status(400).json({ message: 'All fields are required' });
-  }
-
+exports.register = async (req, res, next) => {
   try {
-    const hashed = await bcrypt.hash(password, 10);
-
-    const sql = `
-      INSERT INTO users (full_name, email, password, role_id, school_id)
-      VALUES (?, ?, ?, ?, ?)
-    `;
-    await db.query(sql, [full_name, email, hashed, role_id, school_id]);
-
-    res.status(201).json({ message: 'User created successfully' });
+    const user = await userService.registerUser(req.body);
+    return response.success(res, user, 'User created successfully', 201);
   } catch (err) {
-    console.error('User registration error:', err);
-    res.status(500).json({ error: 'Database error', details: err.message });
+    next(err);
   }
 };
 
 // ✅ Get user by ID
-exports.getUserById = async (req, res) => {
-  const userId = req.params.id;
-
+exports.getUserById = async (req, res, next) => {
   try {
-    const [results] = await db.query(
-      'SELECT id, full_name, email, role_id, school_id FROM users WHERE id = ?',
-      [userId]
-    );
-
-    if (results.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
+    const user = await userService.getUserById(req.params.id);
+    if (!user) {
+      return response.error(res, 'User not found', 404);
     }
-
-    const user = results[0];
-    res.status(200).json({ message: 'User fetched successfully', user });
+    return response.success(res, user, 'User fetched successfully');
   } catch (err) {
-    console.error('Error fetching user:', err);
-    res.status(500).json({ message: 'Database error', error: err.message });
+    next(err);
+  }
+};
+
+// ✅ Get user profile image fallback
+exports.getProfileImage = async (req, res) => {
+  const path = require('path');
+  const fs = require('fs');
+
+  const userId = req.params.id;
+  // Professional fallback: check for existing image, otherwise send default avatar
+  const imagePath = path.join(__dirname, '../public/avatar.png');
+
+  if (fs.existsSync(imagePath)) {
+    return res.sendFile(imagePath);
+  } else {
+    // If even fallback is missing, send a small transparent pixel or 204
+    return res.status(404).send('Not Found');
   }
 };

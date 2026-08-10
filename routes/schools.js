@@ -2,15 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
-const { protect } = require('../middlewares/authMiddleware');
-
-// Helper function to check if user is admin
-const isAdmin = (req, res, next) => {
-  if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Access denied. Admin role required.' });
-  }
-  next();
-};
+const { protect, isAdmin } = require('../middlewares/authMiddleware');
 
 /**
  * @route   GET /api/schools
@@ -19,9 +11,23 @@ const isAdmin = (req, res, next) => {
  */
 router.get('/', protect, async (req, res) => {
   try {
-    const [schools] = await db.query(
-      'SELECT id, name, address, phone_number, email FROM schools ORDER BY name ASC'
-    );
+    const user = req.user;
+    let query = 'SELECT id, name, address, phone_number, email, garrison_id FROM schools';
+    let params = [];
+
+    if (user && user.role !== 'superadmin' && user.role !== 'super_admin') {
+      if (user.garrison_id) {
+        query += ' WHERE garrison_id = ?';
+        params = [user.garrison_id];
+      } else if (user.school_id) {
+        query += ' WHERE id = ?';
+        params = [user.school_id];
+      }
+    }
+
+    query += ' ORDER BY name ASC';
+
+    const [schools] = await db.query(query, params);
     res.json(schools);
   } catch (err) {
     console.error('Error fetching schools:', err);
@@ -61,19 +67,21 @@ router.get('/:id', protect, async (req, res) => {
  */
 router.post('/', protect, isAdmin, async (req, res) => {
   const { name, address, phone_number, email } = req.body;
-  
+  const userGarrisonId = req.user.garrison_id;
+
   if (!name) {
     return res.status(400).json({ error: 'School name is required' });
   }
   
   try {
+    const id = require('crypto').randomUUID();
     const [result] = await db.query(
-      'INSERT INTO schools (name, address, phone_number, email) VALUES (?, ?, ?, ?)',
-      [name, address, phone_number, email]
+      'INSERT INTO schools (id, name, address, phone_number, email, garrison_id) VALUES (?, ?, ?, ?, ?, ?)',
+      [id, name, address, phone_number, email, userGarrisonId]
     );
     
     res.status(201).json({
-      id: result.insertId,
+      id,
       message: 'School created successfully'
     });
   } catch (err) {

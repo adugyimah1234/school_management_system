@@ -1,19 +1,42 @@
 const express = require('express');
 const app = express();
 require('dotenv').config();
+
+// ✅ Validate Environment Variables First
+require('./config/env')();
+
 const cors = require('cors');
+const morgan = require('morgan');
+const logger = require('./utils/logger');
+
+// ✅ Professional Proxy Trust (Essential for Cloudflare)
+app.set('trust proxy', 1);
+
 const cookieParser = require('cookie-parser'); // ✅ Added
 const db = require('./config/db');
 const path = require('path');
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
+  logger.error('Uncaught Exception: ' + err.message);
+  logger.error(err.stack);
   process.exit(1);
 });
 
+// ✅ Morgan HTTP Logging
+const morganMiddleware = morgan(
+  ':method :url :status :res[content-length] - :response-time ms',
+  {
+    stream: {
+      write: (message) => logger.http(message.trim()),
+    },
+  }
+);
+
+app.use(morganMiddleware);
+
 app.use((req, res, next) => {
-  console.log('🧾 Origin:', req.headers.origin);
+  logger.debug('🧾 Origin: ' + req.headers.origin);
   res.setHeader('X-Debug-Origin', req.headers.origin || 'none');
   next();
 });
@@ -54,7 +77,7 @@ const admissionRoutes = require('./routes/admissions');
 const registrationRoutes = require('./routes/registrations');
 const feeRoutes = require('./routes/fees');
 const dashboardRoutes = require('./routes/dashboardRoutes');
-const examRoutes = require('./routes/examRoutes');
+const assessmentRoutes = require('./routes/assessmentRoutes');
 const receiptRoutes = require('./routes/receipts');
 const branchRoutes = require('./routes/branches');
 const reportRouter = require('./routes/financialReportRoutes');
@@ -65,9 +88,24 @@ const roleRoutes = require('./routes/role.routes');
 const moduleRoutes = require('./routes/module');
 const receiptItemRoutes = require('./routes/receiptItemRoutes');
 const tuitionRoutes = require('./routes/tuitionRoutes');
-
+const settingRoutes = require('./routes/settings');
+const superAdminRoutes = require('./routes/superAdminRoutes');
+const gradebookRoutes = require('./routes/gradebook');
+const disciplineRoutes = require('./routes/discipline');
+const inventoryRoutes = require('./routes/inventory');
+const dutyRoutes = require('./routes/duty');
+const expenseRoutes = require('./routes/expenses');
+const exeatRoutes = require('./routes/exeat');
+const remarksRoutes = require('./routes/remarks');
+const momoRoutes = require('./routes/momo');
+const payrollRoutes = require('./routes/payroll');
+const performanceRoutes = require('./routes/performance');
+const garrisonDirectorRoutes = require('./routes/garrisonDirectorRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const { swaggerUi, specs } = require('./config/swagger');
 
 // ✅ Use routes
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/students', studentRoutes);
@@ -80,7 +118,7 @@ app.use('/api/admissions', admissionRoutes);
 app.use('/api/registrations', registrationRoutes);
 app.use('/api/academic-years', academicYearsRouter);
 app.use('/api/fees', feeRoutes);
-app.use('/api/exams', examRoutes);
+app.use('/api/assessments', assessmentRoutes);
 app.use('/api/receipts', receiptRoutes);
 app.use('/api/reports', reportRouter);
 app.use('/api/branches', branchRoutes);
@@ -88,14 +126,38 @@ app.use('/api/schools', schoolsRouter);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/modules', moduleRoutes);
 app.use('/api/tuition', tuitionRoutes);
+app.use('/api/settings', settingRoutes);
+app.use('/api/super-admin', superAdminRoutes);
+app.use('/api/gradebook', gradebookRoutes);
+app.use('/api/discipline', disciplineRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/duty-roster', dutyRoutes);
+app.use('/api/expenses', expenseRoutes);
+app.use('/api/exeats', exeatRoutes);
+app.use('/api/remarks', remarksRoutes);
+app.use('/api/momo', momoRoutes);
+app.use('/api/payroll', payrollRoutes);
+app.use('/api/performance', performanceRoutes);
+app.use('/api/garrison-director', garrisonDirectorRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api/fees/presets', require('./routes/presets'));
 
 // ✅ Global error handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
-    error: 'Something went wrong!',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined,
+  // Log the full error internally for developers using Winston
+  logger.error(`${req.method} ${req.url} - ${err.message}`);
+  logger.error(err.stack);
+
+  // Determine status code (default to 500)
+  const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+
+  // Send a clean, non-leaking message to the user
+  res.status(statusCode).json({
+    success: false,
+    message: process.env.NODE_ENV === 'production'
+      ? 'An internal server error occurred. Please contact support.'
+      : err.message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
   });
 });
 

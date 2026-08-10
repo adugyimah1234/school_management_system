@@ -2,22 +2,28 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
-const { protect } = require('../middlewares/authMiddleware');
+const { protect, isAdmin } = require('../middlewares/authMiddleware');
 
-// Helper function to check if user is admin
-const isAdmin = (req, res, next) => {
-  if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Access denied. Admin role required.' });
-  }
-  next();
-};
+// The local isAdmin function was redundant and less robust
+// router.post('/', protect, isAdmin, ...)
 
 // Get all academic years - accessible to any authenticated user
 router.get('/', protect, async (req, res) => {
   try {
-    const [results] = await db.query(
-      'SELECT * FROM academic_years ORDER BY start_date DESC'
-    );
+    const user = req.user;
+    let query = 'SELECT * FROM academic_years';
+    let params = [];
+
+    if (user && user.role !== 'superadmin' && user.role !== 'super_admin') {
+      if (user.garrison_id) {
+        query += ' WHERE garrison_id = ? OR garrison_id IS NULL';
+        params = [user.garrison_id];
+      }
+    }
+
+    query += ' ORDER BY start_date DESC';
+
+    const [results] = await db.query(query, params);
     res.json(results);
   } catch (err) {
     console.error('Error fetching academic years:', err);
@@ -74,24 +80,30 @@ router.post('/', protect, isAdmin, async (req, res) => {
   }
   
   try {
-    // If is_active is true, set all other academic years to inactive
+    // If is_active is true, set all other academic years in THIS garrison to inactive
     if (is_active) {
+      const garrison_id = req.user ? req.user.garrison_id : null;
       await db.query(
-        'UPDATE academic_years SET is_active = false WHERE is_active = true'
+        'UPDATE academic_years SET is_active = false WHERE garrison_id = ? AND is_active = true',
+        [garrison_id]
       );
     }
     
     // Set default value for is_active if not provided
     const activeStatus = is_active !== undefined ? is_active : false;
-    
+    const garrison_id = req.user ? req.user.garrison_id : null;
+
+    const crypto = require('crypto');
+    const id = crypto.randomUUID();
+
     // Insert new academic year
-    const [result] = await db.query(
-      'INSERT INTO academic_years (year, start_date, end_date, is_active) VALUES (?, ?, ?, ?)',
-      [year, start_date, end_date, activeStatus]
+    await db.query(
+      'INSERT INTO academic_years (id, year, start_date, end_date, is_active, garrison_id) VALUES (?, ?, ?, ?, ?, ?)',
+      [id, year, start_date, end_date, activeStatus, garrison_id]
     );
     
     res.status(201).json({
-      id: result.insertId,
+      id: id,
       message: 'Academic year created successfully'
     });
   } catch (err) {
@@ -139,11 +151,12 @@ router.put('/:id', protect, isAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Academic year not found' });
     }
     
-    // If setting this year to active, set all others to inactive
+    // If setting this year to active, set all others in THIS garrison to inactive
     if (is_active) {
+      const garrison_id = req.user ? req.user.garrison_id : null;
       await db.query(
-        'UPDATE academic_years SET is_active = false WHERE id != ?',
-        [id]
+        'UPDATE academic_years SET is_active = false WHERE id != ? AND garrison_id = ?',
+        [id, garrison_id]
       );
     }
     
