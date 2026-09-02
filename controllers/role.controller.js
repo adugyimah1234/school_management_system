@@ -1,4 +1,5 @@
 const Role = require('../models/role.model');
+const crypto = require('crypto');
 
 exports.getAllRoles = async (req, res) => {
   try {
@@ -24,9 +25,20 @@ exports.getRoleById = async (req, res) => {
 
 exports.createRole = async (req, res) => {
   try {
-    const role = req.body;
-    const result = await Role.create(role);
-    res.status(201).json({ id: result.insertId, ...role });
+    const { name, description } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ message: 'Role name is required' });
+    }
+
+    const role = {
+      id: crypto.randomUUID(),
+      name,
+      description: description || ''
+    };
+
+    await Role.create(role);
+    res.status(201).json(role);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -35,8 +47,17 @@ exports.createRole = async (req, res) => {
 exports.updateRole = async (req, res) => {
   try {
     const id = req.params.id;
-    const role = req.body;
-    await Role.update(id, role);
+    const { name, description } = req.body;
+
+    const updates = {};
+    if (name !== undefined) updates.name = name;
+    if (description !== undefined) updates.description = description;
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: 'No fields to update' });
+    }
+
+    await Role.update(id, updates);
     res.json({ message: 'Role updated successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });

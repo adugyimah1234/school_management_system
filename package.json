@@ -27,8 +27,10 @@
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^4.18.2",
-    "express-rate-limit": "^7.5.0",
+    "express-rate-limit": "^7.5.1",
     "express-validator": "^7.3.2",
+    "helmet": "^8.3.0",
+    "hpp": "^0.2.3",
     "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.11.0",
@@ -38,7 +40,8 @@
     "redis": "^6.2.0",
     "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1",
-    "winston": "^3.19.0"
+    "winston": "^3.19.0",
+    "xss-clean": "^0.1.4"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

@@ -26,10 +26,10 @@ class DashboardService {
         whereClause = '';
         params = [];
       } else if (normalizedRole === 'garrisondirector' || normalizedRole === 'admin') {
-        whereClause = 'WHERE garrison_id = ?';
+        whereClause = 'WHERE p.garrison_id = ?';
         params = [user.garrison_id];
       } else if (normalizedRole === 'schooladmin' || user.school_id) {
-        whereClause = 'WHERE school_id = ?';
+        whereClause = 'WHERE p.school_id = ?';
         params = [user.school_id];
       } else {
         whereClause = 'WHERE 1=0';
@@ -38,7 +38,7 @@ class DashboardService {
       // 1. Financial summary using actual payments table
       const collectionsQuery = `
         SELECT COALESCE(SUM(amount_paid), 0) AS totalCollections
-        FROM payments
+        FROM payments p
         ${whereClause}
       `;
       const [collectionsRows] = await db.query(collectionsQuery, params);
@@ -67,7 +67,7 @@ class DashboardService {
 
       // 3. Recent transactions using payments table directly
       const [transactions] = await db.query(`
-        SELECT p.id, p.amount_paid as amount, p.payment_method AS type, p.payment_date AS date,
+        SELECT p.id, p.amount_paid as amount, p.method AS type, p.payment_date AS date,
                CONCAT(s.first_name, ' ', s.last_name) AS student_name
         FROM payments p
         JOIN students s ON p.student_id = s.id
@@ -111,12 +111,12 @@ class DashboardService {
                 DATE_FORMAT(d, '%Y-%m') as month,
                 (
                     SELECT COALESCE(SUM(amount_paid), 0) FROM payments
-                    ${where ? where.replace('WHERE', 'WHERE school_id = ? AND') : 'WHERE'}
+                    ${where ? where + ' AND' : 'WHERE'}
                     DATE_FORMAT(payment_date, '%Y-%m') = DATE_FORMAT(d, '%Y-%m')
                 ) as inflow,
                 (
                     SELECT COALESCE(SUM(amount), 0) FROM expenses
-                    ${where ? where.replace('WHERE', 'WHERE school_id = ? AND') : 'WHERE'}
+                    ${where ? where + ' AND' : 'WHERE'}
                     DATE_FORMAT(expense_date, '%Y-%m') = DATE_FORMAT(d, '%Y-%m')
                 ) as outflow
             FROM (

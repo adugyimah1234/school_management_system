@@ -90,6 +90,7 @@ class AuthService {
         full_name: user.full_name,
         username: user.username,
         email: user.email,
+        phone_number: user.phone_number,
         role: user.role,
         role_id: user.role_id,
         school_id: user.school_id,
@@ -141,7 +142,7 @@ class AuthService {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const [results] = await db.query(
-      `SELECT users.id, users.full_name, users.username, users.email, users.role_id, users.school_id, users.garrison_id,
+      `SELECT users.id, users.full_name, users.username, users.email, users.phone_number, users.role_id, users.school_id, users.garrison_id,
               roles.name AS role, garrisons.name AS garrison_name, schools.name AS school_name
        FROM users
        JOIN roles ON users.role_id = roles.id
@@ -164,6 +165,7 @@ class AuthService {
       full_name: u.full_name,
       username: u.username,
       email: u.email,
+      phone_number: u.phone_number,
       role: u.role,
       role_id: u.role_id,
       school_id: u.school_id,

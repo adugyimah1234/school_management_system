@@ -82,10 +82,14 @@ async function seed() {
             for (let j = 0; j < 3; j++) {
                 const fname = firstNames[Math.floor(Math.random() * firstNames.length)];
                 const lname = lastNames[Math.floor(Math.random() * lastNames.length)];
+                const cls = classes[Math.floor(Math.random() * classes.length)];
+                const catId = catIds[Math.floor(Math.random() * catIds.length)];
+                const catName = categories.find(c => c.id === catId)?.name || 'SVC';
+
                 await db.query(`
-                    INSERT INTO registrations (id, school_id, garrison_id, first_name, last_name, gender, status, payment_status, phone_number, address)
-                    VALUES (?, ?, ?, ?, ?, ?, 'pending', 'unpaid', '0241111111', 'Garrison Base')`,
-                    [crypto.randomUUID(), schoolId, garrison.id, fname, lname, j % 2 === 0 ? 'Male' : 'Female']
+                    INSERT INTO registrations (id, school_id, garrison_id, first_name, last_name, gender, status, payment_status, phone_number, address, class_applying_for, category, academic_year_id)
+                    VALUES (?, ?, ?, ?, ?, ?, 'pending', 'unpaid', '0241111111', 'Garrison Base', ?, ?, ?)`,
+                    [crypto.randomUUID(), schoolId, garrison.id, fname, lname, j % 2 === 0 ? 'Male' : 'Female', cls.name, catName, academicYearId]
                 );
             }
 

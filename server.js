@@ -8,11 +8,32 @@ require('./config/env')();
 const cors = require('cors');
 const morgan = require('morgan');
 const logger = require('./utils/logger');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const hpp = require('hpp');
+const xss = require('xss-clean');
 
 // ✅ Professional Proxy Trust (Essential for Cloudflare)
 app.set('trust proxy', 1);
 
-const cookieParser = require('cookie-parser'); // ✅ Added
+// ✅ Security Middleware
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: false,
+}));
+app.use(xss());    // Prevent XSS attacks
+app.use(hpp());    // Prevent HTTP Parameter Pollution
+
+// ✅ Rate Limiting (Prevents Brute Force/DoS)
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per window
+  message: { success: false, message: 'Too many requests from this IP, please try again later.' },
+});
+app.use('/api/', limiter);
+
+const cookieParser = require('cookie-parser');
+ // ✅ Added
 const db = require('./config/db');
 const path = require('path');
 
@@ -141,6 +162,8 @@ app.use('/api/performance', performanceRoutes);
 app.use('/api/garrison-director', garrisonDirectorRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/fees/presets', require('./routes/presets'));
+app.use('/api/public', require('./routes/public'));
+app.use('/api/documents', require('./routes/documents'));
 
 // ✅ Global error handler
 app.use((err, req, res, next) => {

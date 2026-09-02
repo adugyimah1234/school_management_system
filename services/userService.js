@@ -15,9 +15,12 @@ class UserService {
       }
 
       const [results] = await db.query(`
-        SELECT u.id, u.full_name, u.username, u.email, u.role_id, u.school_id, u.garrison_id, r.name as role
+        SELECT u.id, u.full_name, u.username, u.email, u.phone_number, u.role_id, u.school_id, u.garrison_id,
+               r.name as role, s.name as school_name, g.name as garrison_name
         FROM users u
         LEFT JOIN roles r ON u.role_id = r.id
+        LEFT JOIN schools s ON u.school_id = s.id
+        LEFT JOIN garrisons g ON u.garrison_id = g.id
         WHERE u.id = ?
       `, [id]);
 
@@ -36,15 +39,15 @@ class UserService {
   }
 
   async registerUser(userData) {
-    const { full_name, email, username, password, role_id, school_id, garrison_id } = userData;
+    const { full_name, email, phone_number, username, password, role_id, school_id, garrison_id } = userData;
     const hashed = await bcrypt.hash(password, 10);
     const id = require('crypto').randomUUID();
 
     const sql = `
-      INSERT INTO users (id, full_name, email, username, password, role_id, school_id, garrison_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, full_name, email, phone_number, username, password, role_id, school_id, garrison_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    const [result] = await db.query(sql, [id, full_name, email, username, hashed, role_id, school_id, garrison_id]);
+    const [result] = await db.query(sql, [id, full_name, email, phone_number, username, hashed, role_id, school_id, garrison_id]);
     return { id, ...userData };
   }
 

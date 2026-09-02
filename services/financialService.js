@@ -319,7 +319,7 @@ class FinancialService {
       const paymentId = crypto.randomUUID();
       await db.query(
         `INSERT INTO payments
-         (id, student_id, fee_id, amount_paid, payment_date, payment_method, recorded_by, school_id, garrison_id)
+         (id, student_id, fee_id, amount_paid, payment_date, method, recorded_by, school_id, garrison_id)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [paymentId, student_id, fee_id, amount_paid, payment_date || new Date(), payment_method, user.id, school_id, garrison_id]
       );
@@ -387,8 +387,8 @@ class FinancialService {
             s.id,
             s.first_name,
             s.last_name,
-            s.guardian_name,
-            s.guardian_phone_number,
+            p.full_name as guardian_name,
+            p.phone_number as guardian_phone_number,
             c.name as class_name,
             sch.name as school_name,
             (
@@ -405,6 +405,7 @@ class FinancialService {
         FROM students s
         JOIN classes c ON s.class_id = c.id
         JOIN schools sch ON s.school_id = sch.id
+        LEFT JOIN parents p ON s.id = p.student_id
         WHERE s.status = 'active'
       `;
 

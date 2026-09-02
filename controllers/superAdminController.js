@@ -2,6 +2,7 @@ const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
+const auditLogger = require('../utils/auditLogger');
 const path = require('path');
 const fs = require('fs');
 const notificationController = require('./notificationController');
@@ -176,13 +177,39 @@ exports.createGarrison = async (req, res) => {
 // 3b. Update a Garrison
 exports.updateGarrison = async (req, res) => {
     const { id } = req.params;
-    const { name, code, location } = req.body;
+    const {
+      name, code, location,
+      custom_domain, website_logo_url, primary_color, secondary_color,
+      hero_title, hero_subtitle, about_text, contact_email,
+      contact_phone, is_website_enabled
+    } = req.body;
     try {
       const [result] = await db.query(
-        'UPDATE garrisons SET name = ?, code = ?, location = ? WHERE id = ?',
-        [name, code, location, id]
+        `UPDATE garrisons SET
+          name = ?, code = ?, location = ?,
+          custom_domain = ?, website_logo_url = ?, primary_color = ?, secondary_color = ?,
+          hero_title = ?, hero_subtitle = ?, about_text = ?, contact_email = ?,
+          contact_phone = ?, is_website_enabled = ?
+        WHERE id = ?`,
+        [
+          name, code, location,
+          custom_domain, website_logo_url, primary_color, secondary_color,
+          hero_title, hero_subtitle, about_text, contact_email,
+          contact_phone, is_website_enabled, id
+        ]
       );
       if (result.affectedRows === 0) return res.status(404).json({ success: false, error: 'Garrison not found' });
+
+      // 🛡️ Log the Garrison update
+      await auditLogger.logAction({
+        user_id: req.user?.id,
+        action: 'UPDATE_GARRISON_SETTINGS',
+        target_type: 'garrison',
+        target_id: id,
+        changes: req.body,
+        ip_address: req.ip
+      });
+
       sendSuccess(res, null, 'Garrison updated successfully');
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 };
@@ -357,5 +384,52 @@ exports.createGarrisonDirector = async (req, res) => {
       });
 
       sendSuccess(res, { id }, 'Director created');
+    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+};
+
+// 8. Garrison News Management
+exports.getGarrisonNews = async (req, res) => {
+    const { garrisonId } = req.params;
+    try {
+        const [news] = await db.query(
+            'SELECT * FROM garrison_news WHERE garrison_id = ? ORDER BY published_at DESC',
+            [garrisonId]
+        );
+        sendSuccess(res, news);
+    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+};
+
+exports.createGarrisonNews = async (req, res) => {
+    const { garrisonId } = req.params;
+    const { title, content, image_url } = req.body;
+    try {
+        const id = crypto.randomUUID();
+        await db.query(
+            'INSERT INTO garrison_news (id, garrison_id, title, content, image_url) VALUES (?, ?, ?, ?, ?)',
+            [id, garrisonId, title, content, image_url]
+        );
+        sendSuccess(res, { id }, 'News brief published successfully');
+    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+};
+
+exports.deleteGarrisonNews = async (req, res) => {
+    const { id } = req.params;
+    try {
+        await db.query('DELETE FROM garrison_news WHERE id = ?', [id]);
+        sendSuccess(res, null, 'News brief deleted');
+    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+};
+
+// 9. Audit Logs
+exports.getAuditLogs = async (req, res) => {
+    try {
+        const [logs] = await db.query(`
+            SELECT a.*, u.full_name as user_name, u.username
+            FROM audit_logs a
+            LEFT JOIN users u ON a.user_id = u.id
+            ORDER BY a.created_at DESC
+            LIMIT 100
+        `);
+        sendSuccess(res, logs);
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 };

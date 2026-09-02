@@ -182,12 +182,48 @@ exports.createReceipt = async (req, res) => {
     const receiptDate = date_issued || new Date().toISOString().split("T")[0];
 
     await connection.beginTransaction();
+
+    // --- Assessment Auto-Assignment Logic ---
+    let assessment_id = null;
+
+    // If this is a registration payment, try to link it to an active assessment session
+    if (registration_id && receipt_type.some(rt => rt.type === "registration")) {
+      const [regRows] = await connection.query(
+        "SELECT class_applying_for, category_id, garrison_id, school_id FROM registrations WHERE id = ?",
+        [registration_id]
+      );
+
+      if (regRows.length > 0) {
+        const reg = regRows[0];
+
+        // Find applicable assessments in this garrison
+        // Logic: Garrison-wide (school_id is NULL) overrides school-specific
+        const [assessments] = await connection.query(
+          `SELECT id, school_id FROM assessments
+           WHERE garrison_id = ?
+           AND (class_level = ? OR class_level = 'All Classes')
+           AND (category_id = ? OR category_id IS NULL)
+           AND (school_id = ? OR school_id IS NULL)
+           ORDER BY school_id ASC LIMIT 1`,
+           // ORDER BY school_id ASC puts NULL (garrison-wide) first in many SQL dialects,
+           // but to be safe and explicit:
+          [reg.garrison_id, reg.class_applying_for, reg.category_id, reg.school_id]
+        );
+
+        if (assessments.length > 0) {
+          // If we have multiple, prioritize the one with school_id NULL (Garrison Director's)
+          const garrisonWide = assessments.find(a => a.school_id === null);
+          assessment_id = garrisonWide ? garrisonWide.id : assessments[0].id;
+        }
+      }
+    }
+
     const receiptId = crypto.randomUUID();
 
     await connection.query(
       `INSERT INTO receipts 
-        (id, registration_id, student_id, issued_by, date_issued, school_id, garrison_id, class_id, amount)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, registration_id, student_id, issued_by, date_issued, school_id, garrison_id, class_id, amount, assessment_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         receiptId,
         registration_id || null,
@@ -197,7 +233,8 @@ exports.createReceipt = async (req, res) => {
         school_id || (req.user ? req.user.school_id : null),
         req.user ? req.user.garrison_id : null,
         class_id || null,
-        totalAmount
+        totalAmount,
+        assessment_id
       ]
     );
 

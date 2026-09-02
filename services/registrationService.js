@@ -147,14 +147,12 @@ class RegistrationService {
         details: { first_name, last_name, status: record.status }
       });
 
-      // 5. Trigger Background Job: Welcome Email
+      // 5. Trigger Background Job: Welcome Email (Fire-and-Forget)
       if (record.email) {
-        try {
-          await queue.addJob('EMAIL_WELCOME', {
-            email: record.email,
-            name: `${record.first_name} ${record.last_name}`
-          });
-        } catch (e) { }
+        queue.addJob('EMAIL_WELCOME', {
+          email: record.email,
+          name: `${record.first_name} ${record.last_name}`
+        }).catch(err => logger.error('Async Job Error:', err.message));
       }
 
       return record;

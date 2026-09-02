@@ -5,6 +5,46 @@ const db = require('../config/db');
 const { protect, isAdmin } = require('../middlewares/authMiddleware');
 
 /**
+ * @route   GET /api/schools/public/:domain
+ * @desc    Get public website settings for a school by domain
+ * @access  Public
+ */
+router.get('/public/:domain', async (req, res) => {
+  const { domain } = req.params;
+
+  try {
+    const [[school]] = await db.query(
+      `SELECT
+        id, name, address, phone_number, email,
+        website_logo_url, primary_color, secondary_color,
+        hero_title, hero_subtitle, about_text, contact_email,
+        contact_phone, facebook_url, twitter_url, instagram_url,
+        leader_name, leader_title, leader_message, leader_image_url
+      FROM schools
+      WHERE (custom_domain = ? OR id = ?) AND is_website_enabled = TRUE`,
+      [domain, domain]
+    );
+
+    if (!school) {
+      return res.status(404).json({ error: 'School website not found' });
+    }
+
+    // Fetch documents
+    const [documents] = await db.query(
+      `SELECT id, title, file_url, file_type
+       FROM school_documents
+       WHERE owner_id = ? AND owner_type = 'school'`,
+      [school.id]
+    );
+
+    res.json({ ...school, documents });
+  } catch (err) {
+    console.error('Error fetching public school details:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * @route   GET /api/schools
  * @desc    Get all schools for dropdowns
  * @access  Private
@@ -12,7 +52,14 @@ const { protect, isAdmin } = require('../middlewares/authMiddleware');
 router.get('/', protect, async (req, res) => {
   try {
     const user = req.user;
-    let query = 'SELECT id, name, address, phone_number, email, garrison_id FROM schools';
+    let query = `
+      SELECT
+        id, name, address, phone_number, email, garrison_id,
+        custom_domain, website_logo_url, primary_color, secondary_color,
+        hero_title, hero_subtitle, about_text, contact_email,
+        contact_phone, facebook_url, twitter_url, instagram_url,
+        is_website_enabled
+      FROM schools`;
     let params = [];
 
     if (user && user.role !== 'superadmin' && user.role !== 'super_admin') {
@@ -45,7 +92,13 @@ router.get('/:id', protect, async (req, res) => {
   
   try {
     const [schools] = await db.query(
-      'SELECT id, name, address, phone_number, email FROM schools WHERE id = ?',
+      `SELECT
+        id, name, address, phone_number, email,
+        custom_domain, website_logo_url, primary_color, secondary_color,
+        hero_title, hero_subtitle, about_text, contact_email,
+        contact_phone, facebook_url, twitter_url, instagram_url,
+        is_website_enabled
+      FROM schools WHERE id = ?`,
       [id]
     );
     
@@ -97,7 +150,13 @@ router.post('/', protect, isAdmin, async (req, res) => {
  */
 router.put('/:id', protect, isAdmin, async (req, res) => {
   const { id } = req.params;
-  const { name, address, phone_number, email } = req.body;
+  const {
+    name, address, phone_number, email,
+    custom_domain, website_logo_url, primary_color, secondary_color,
+    hero_title, hero_subtitle, about_text, contact_email,
+    contact_phone, facebook_url, twitter_url, instagram_url,
+    is_website_enabled
+  } = req.body;
   
   if (!name) {
     return res.status(400).json({ error: 'School name is required' });
@@ -105,8 +164,20 @@ router.put('/:id', protect, isAdmin, async (req, res) => {
   
   try {
     const [result] = await db.query(
-      'UPDATE schools SET name = ?, address = ?, phone_number = ?, email = ? WHERE id = ?',
-      [name, address, phone_number, email, id]
+      `UPDATE schools SET
+        name = ?, address = ?, phone_number = ?, email = ?,
+        custom_domain = ?, website_logo_url = ?, primary_color = ?, secondary_color = ?,
+        hero_title = ?, hero_subtitle = ?, about_text = ?, contact_email = ?,
+        contact_phone = ?, facebook_url = ?, twitter_url = ?, instagram_url = ?,
+        is_website_enabled = ?
+      WHERE id = ?`,
+      [
+        name, address, phone_number, email,
+        custom_domain, website_logo_url, primary_color, secondary_color,
+        hero_title, hero_subtitle, about_text, contact_email,
+        contact_phone, facebook_url, twitter_url, instagram_url,
+        is_website_enabled, id
+      ]
     );
     
     if (result.affectedRows === 0) {

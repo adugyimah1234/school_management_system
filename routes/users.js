@@ -5,6 +5,7 @@ const db = require('../config/db');
 const { protect } = require('../middlewares/authMiddleware'); // Import using the correct name
 const userController = require('../controllers/usersController');
 const bcrypt = require('bcryptjs');
+const response = require('../utils/apiResponse');
 
 
 // Get all users (scoped by role)
@@ -12,7 +13,7 @@ router.get('/', protect, async (req, res) => {
   try {
     const user = req.user;
     let query = `
-      SELECT u.id, u.full_name, u.username, u.email, u.role_id, u.school_id, u.garrison_id, r.name as role, s.name as school_name
+      SELECT u.id, u.full_name, u.username, u.email, u.phone_number, u.role_id, u.school_id, u.garrison_id, r.name as role, s.name as school_name
       FROM users u
       LEFT JOIN roles r ON u.role_id = r.id
       LEFT JOIN schools s ON u.school_id = s.id
@@ -26,13 +27,13 @@ router.get('/', protect, async (req, res) => {
       query += ' WHERE u.school_id = ?';
       params = [user.school_id];
     } else if (user.role !== 'superadmin' && user.role !== 'super_admin') {
-      return res.status(403).json({ error: 'Access denied' });
+      return response.error(res, 'Access denied', 403);
     }
 
     const [results] = await db.query(query, params);
-    res.json(results);
+    return response.success(res, results);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return response.error(res, err.message);
   }
 });
 
@@ -109,7 +110,7 @@ router.post('/', protect, async (req, res) => {
 // Update user by ID with safe hashing and partial updates
 router.put('/:id', protect, async (req, res) => {
   const { id } = req.params;
-  const { full_name, username, password, role_id, school_id, status } = req.body;
+  const { full_name, username, password, role_id, school_id, status, email, phone_number } = req.body;
 
   try {
     const updates = [];
@@ -123,6 +124,16 @@ router.put('/:id', protect, async (req, res) => {
     if (username !== undefined) {
       updates.push('username = ?');
       values.push(username);
+    }
+
+    if (email !== undefined) {
+      updates.push('email = ?');
+      values.push(email);
+    }
+
+    if (phone_number !== undefined) {
+      updates.push('phone_number = ?');
+      values.push(phone_number);
     }
 
     if (role_id !== undefined) {
@@ -148,7 +159,7 @@ router.put('/:id', protect, async (req, res) => {
     }
 
     if (updates.length === 0) {
-      return res.status(400).json({ error: 'No fields to update' });
+      return response.error(res, 'No fields to update', 400);
     }
 
     values.push(id);
@@ -161,11 +172,23 @@ router.put('/:id', protect, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json({ message: 'User updated successfully' });
+    // Fetch and return the updated user with full details
+    const [updatedRows] = await db.query(
+      `SELECT u.id, u.full_name, u.username, u.email, u.phone_number, u.role_id, u.school_id, u.garrison_id,
+              r.name as role, s.name as school_name, g.name as garrison_name
+       FROM users u
+       LEFT JOIN roles r ON u.role_id = r.id
+       LEFT JOIN schools s ON u.school_id = s.id
+       LEFT JOIN garrisons g ON u.garrison_id = g.id
+       WHERE u.id = ?`,
+      [id]
+    );
+
+    return response.success(res, updatedRows[0], 'User updated successfully');
 
   } catch (err) {
     console.error('Update user error:', err);
-    res.status(500).json({ error: err.message });
+    return response.error(res, err.message);
   }
 });
 

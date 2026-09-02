@@ -34,9 +34,10 @@ class StudentService {
       } else if (normalizedRole === 'garrisondirector' || normalizedRole === 'admin') {
         // Garrison level access
         if (user.garrison_id) filter.garrison_id = user.garrison_id;
-      } else if (normalizedRole === 'schooladmin' || user.school_id) {
+      } else if (['schooladmin', 'accountant', 'frontdesk', 'teacher'].includes(normalizedRole) || user.school_id) {
         // School level access
         if (user.school_id) filter.school_id = user.school_id;
+        else if (user.garrison_id) filter.garrison_id = user.garrison_id;
       } else {
         // Restricted access
         return [];
