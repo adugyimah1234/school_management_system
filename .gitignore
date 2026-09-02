@@ -1,4 +1,17 @@
-.vercel
-
-# local environment variables
+node_modules/
 .env
+.env.*
+!.env.example
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.idea/
+.vscode/
+.DS_Store
+dist/
+build/
+.vercel
+public/uploads/*
+!public/uploads/.gitkeep
